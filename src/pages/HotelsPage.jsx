@@ -17,17 +17,9 @@ export default function HotelsPage({ currentUser, travelers }) {
 
   async function load() {
     setLoading(true)
-    const { data: hotelData } = await supabase
-      .from('hotels')
-      .select('*')
-      .order('check_in')
-
-    const { data: guestData } = await supabase
-      .from('hotel_guests')
-      .select('hotel_id, traveler_id')
-
+    const { data: hotelData } = await supabase.from('hotels').select('*').order('check_in')
+    const { data: guestData } = await supabase.from('hotel_guests').select('hotel_id, traveler_id')
     setHotels(hotelData ?? [])
-
     const map = {}
     for (const g of guestData ?? []) {
       if (!map[g.hotel_id]) map[g.hotel_id] = []
@@ -49,21 +41,7 @@ export default function HotelsPage({ currentUser, travelers }) {
 
   function openEdit(h) {
     setEditHotel(h)
-    setForm({
-      hotel_name: h.hotel_name ?? '',
-      city: h.city ?? '',
-      country: h.country ?? '',
-      address: h.address ?? '',
-      phone: h.phone ?? '',
-      confirmation_number: h.confirmation_number ?? '',
-      check_in: h.check_in ?? '',
-      check_in_time: h.check_in_time ?? '',
-      check_out: h.check_out ?? '',
-      check_out_time: h.check_out_time ?? '',
-      original_amount: h.original_amount ?? h.total_cost_usd ?? '',
-      original_currency: h.original_currency ?? 'USD',
-      notes: h.notes ?? ''
-    })
+    setForm({ hotel_name: h.hotel_name ?? '', city: h.city ?? '', country: h.country ?? '', address: h.address ?? '', phone: h.phone ?? '', confirmation_number: h.confirmation_number ?? '', check_in: h.check_in ?? '', check_in_time: h.check_in_time ?? '', check_out: h.check_out ?? '', check_out_time: h.check_out_time ?? '', original_amount: h.original_amount ?? h.total_cost_usd ?? '', original_currency: h.original_currency ?? 'USD', notes: h.notes ?? '' })
     const hGuests = guestMap[h.id] ?? []
     setGuests(hGuests.map(t => t.id))
     setSelectedHotel(null)
@@ -75,23 +53,7 @@ export default function HotelsPage({ currentUser, travelers }) {
     setSaving(true)
     const rate = await getExchangeRate(form.original_currency, 'USD')
     const usd = parseFloat((parseFloat(form.original_amount) * rate).toFixed(2))
-    const payload = {
-      hotel_name: form.hotel_name,
-      city: form.city,
-      country: form.country,
-      address: form.address,
-      phone: form.phone,
-      confirmation_number: form.confirmation_number,
-      check_in: form.check_in,
-      check_in_time: form.check_in_time,
-      check_out: form.check_out,
-      check_out_time: form.check_out_time,
-      original_amount: parseFloat(form.original_amount),
-      original_currency: form.original_currency,
-      total_cost_usd: usd,
-      exchange_rate: rate,
-      notes: form.notes
-    }
+    const payload = { hotel_name: form.hotel_name, city: form.city, country: form.country, address: form.address, phone: form.phone, confirmation_number: form.confirmation_number, check_in: form.check_in, check_in_time: form.check_in_time, check_out: form.check_out, check_out_time: form.check_out_time, original_amount: parseFloat(form.original_amount), original_currency: form.original_currency, total_cost_usd: usd, exchange_rate: rate, notes: form.notes }
     let hotelId = editHotel?.id
     if (editHotel) {
       await supabase.from('hotels').update(payload).eq('id', editHotel.id)
@@ -115,43 +77,7 @@ export default function HotelsPage({ currentUser, travelers }) {
     await load()
   }
 
-  function toggleGuest(id) {
-    setGuests(g => g.includes(id) ? g.filter(x => x !== id) : [...g, id])
-  }
-
-  function HotelCard({ h }) {
-    const hotelGuests = guestMap[h.id] ?? []
-    const guestCount = hotelGuests.length
-    const perPerson = guestCount > 0 ? h.total_cost_usd / guestCount : 0
-    const isOld = h.check_out && h.check_out < new Date().toISOString().slice(0, 10)
-    const booker = travelers.find(t => t.id === h.booked_by)
-    return (
-      <div className="card" style={{ marginBottom: 10, opacity: isOld ? 0.6 : 1, cursor: 'pointer' }} onClick={() => setSelectedHotel(h)}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 15 }}>{h.hotel_name}</div>
-            <div className="mono" style={{ fontSize: 11, color: 'var(--warm-500)', marginTop: 2 }}>{h.city}{h.country ? ', ' + h.country : ''}</div>
-          </div>
-          <i className="ti ti-chevron-right" style={{ fontSize: 16, color: 'var(--warm-300)', marginLeft: 8 }} />
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-          <span className="badge mono" style={{ background: isOld ? 'var(--warm-100)' : 'var(--cardinal-light)', color: isOld ? 'var(--warm-300)' : 'var(--cardinal)' }}>
-            {h.check_in} → {h.check_out}
-          </span>
-          <span className="mono fw6" style={{ fontSize: 13, color: 'var(--green)' }}>{fmtUSD(h.total_cost_usd)}</span>
-        </div>
-        <div className="mono" style={{ fontSize: 11, color: 'var(--warm-500)', marginTop: 6 }}>
-          Booked by {booker?.name?.split(' ')[0] ?? '?'} · {fmtUSD(perPerson)}/person
-        </div>
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 8 }}>
-          {hotelGuests.map(t => {
-            const gc = TRAVELER_COLORS[t.name] ?? { bg: '#FFE8E8', text: '#990000' }
-            return <div key={t.id} className="avatar avatar-sm" style={{ background: gc.bg, color: gc.text }}>{initials(t.name)}</div>
-          })}
-        </div>
-      </div>
-    )
-  }
+  function toggleGuest(id) { setGuests(g => g.includes(id) ? g.filter(x => x !== id) : [...g, id]) }
 
   function DetailRow({ label, value, link }) {
     if (!value) return null
@@ -169,7 +95,37 @@ export default function HotelsPage({ currentUser, travelers }) {
       <div className="section-label">Accommodations</div>
       {loading ? <div className="loading">Loading...</div> : hotels.length === 0 ? (
         <div className="empty"><i className="ti ti-building" /><p>No hotels yet</p></div>
-      ) : hotels.map(h => <HotelCard key={h.id} h={h} />)}
+      ) : hotels.map(h => {
+        const hotelGuests = guestMap[h.id] ?? []
+        const guestCount = hotelGuests.length
+        const perPerson = guestCount > 0 ? h.total_cost_usd / guestCount : 0
+        const isOld = h.check_out && h.check_out < new Date().toISOString().slice(0, 10)
+        const booker = travelers.find(t => t.id === h.booked_by)
+        return (
+          <div key={h.id} className="card" style={{ marginBottom: 10, opacity: isOld ? 0.6 : 1, cursor: 'pointer' }} onClick={() => setSelectedHotel(h)}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 15 }}>{h.hotel_name}</div>
+                <div className="mono" style={{ fontSize: 11, color: 'var(--warm-500)', marginTop: 2 }}>{h.city}{h.country ? ', ' + h.country : ''}</div>
+              </div>
+              <i className="ti ti-chevron-right" style={{ fontSize: 16, color: 'var(--warm-300)', marginLeft: 8 }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+              <span className="badge mono" style={{ background: isOld ? 'var(--warm-100)' : 'var(--cardinal-light)', color: isOld ? 'var(--warm-300)' : 'var(--cardinal)' }}>{h.check_in} to {h.check_out}</span>
+              <span className="mono fw6" style={{ fontSize: 13, color: 'var(--green)' }}>{fmtUSD(h.total_cost_usd)}</span>
+            </div>
+            <div className="mono" style={{ fontSize: 11, color: 'var(--warm-500)', marginTop: 6 }}>
+              Booked by {booker?.name?.split(' ')[0] ?? '?'} · {fmtUSD(perPerson)}/person
+            </div>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 8 }}>
+              {hotelGuests.map(t => {
+                const gc = TRAVELER_COLORS[t.name] ?? { bg: '#FFE8E8', text: '#990000' }
+                return <div key={t.id} className="avatar avatar-sm" style={{ background: gc.bg, color: gc.text }}>{initials(t.name)}</div>
+              })}
+            </div>
+          </div>
+        )
+      })}
 
       <button className="add-btn" onClick={openNew}><i className="ti ti-plus" /> Add hotel</button>
 
@@ -178,15 +134,15 @@ export default function HotelsPage({ currentUser, travelers }) {
         const guestCount = hotelGuests.length
         const booker = travelers.find(t => t.id === selectedHotel.booked_by)
         return (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex' }} onClick={() => setSelectedHotel(null)}>
+          <div className="panel-overlay" onClick={() => setSelectedHotel(null)}>
             <div style={{ flex: 1 }} />
-            <div onClick={e => e.stopPropagation()} style={{ width: '88vw', maxWidth: 380, background: 'var(--cream)', boxShadow: '-4px 0 24px rgba(0,0,0,0.2)', height: '100%', overflowY: 'auto', padding: '52px 16px 32px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div className="slide-panel" onClick={e => e.stopPropagation()}>
+              <div className="slide-panel-header">
                 <div>
                   <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 17, color: 'var(--cardinal)' }}>{selectedHotel.hotel_name}</div>
                   <div className="mono" style={{ fontSize: 12, color: 'var(--warm-500)' }}>{selectedHotel.city}{selectedHotel.country ? ', ' + selectedHotel.country : ''}</div>
                 </div>
-                <button onClick={() => setSelectedHotel(null)} style={{ background: 'none', border: 'none', fontSize: 24, color: 'var(--warm-500)' }}><i className="ti ti-x" /></button>
+                <button className="slide-panel-close" onClick={() => setSelectedHotel(null)}><i className="ti ti-x" /></button>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
@@ -231,7 +187,7 @@ export default function HotelsPage({ currentUser, travelers }) {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, marginTop: 'auto', paddingTop: 12 }}>
                 <button className="add-btn" style={{ flex: 1 }} onClick={() => openEdit(selectedHotel)}>
                   <i className="ti ti-edit" /> Edit
                 </button>
@@ -239,6 +195,9 @@ export default function HotelsPage({ currentUser, travelers }) {
                   <i className="ti ti-trash" />
                 </button>
               </div>
+              <button onClick={() => setSelectedHotel(null)} style={{ marginTop: 10, width: '100%', padding: '13px', background: 'var(--warm-100)', color: 'var(--warm-800)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>
+                Close
+              </button>
             </div>
           </div>
         )
@@ -248,7 +207,10 @@ export default function HotelsPage({ currentUser, travelers }) {
         <div className="sheet-overlay" onClick={e => e.target === e.currentTarget && setShowForm(false)}>
           <div className="sheet">
             <div className="sheet-handle" />
-            <div className="sheet-title">{editHotel ? 'Edit hotel' : 'Add hotel'}</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div className="sheet-title" style={{ marginBottom: 0 }}>{editHotel ? 'Edit hotel' : 'Add hotel'}</div>
+              <button onClick={() => setShowForm(false)} className="slide-panel-close"><i className="ti ti-x" /></button>
+            </div>
             <div className="form-field">
               <label className="form-label">Hotel name</label>
               <input className="form-input" placeholder="Hotel Artemide" value={form.hotel_name} onChange={set('hotel_name')} />
@@ -328,7 +290,14 @@ export default function HotelsPage({ currentUser, travelers }) {
               <label className="form-label">Notes</label>
               <input className="form-input" placeholder="Breakfast included, parking, WiFi..." value={form.notes} onChange={set('notes')} />
             </div>
-            <button className="kp-submit" onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Save hotel'}</button>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 4 }}>
+              <button onClick={() => setShowForm(false)} style={{ padding: '14px', background: 'var(--warm-100)', color: 'var(--warm-800)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>
+                Cancel
+              </button>
+              <button className="kp-submit" style={{ margin: 0 }} onClick={save} disabled={saving}>
+                {saving ? 'Saving...' : 'Save hotel'}
+              </button>
+            </div>
           </div>
         </div>
       )}
