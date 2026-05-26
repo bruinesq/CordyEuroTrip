@@ -66,7 +66,7 @@ export default function App() {
             USC Gould School of Law · Celebration 2026
           </div>
         </div>
-        <div style={{ padding: '24px 18px' }}>
+        <div style={{ padding: '24px 18px', overflowY: 'auto', flex: 1 }}>
           <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 13, fontWeight: 800, color: 'var(--warm-500)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 14, textAlign: 'center' }}>
             Who are you, counselor?
           </div>
@@ -104,14 +104,16 @@ export default function App() {
           {currentUser?.name?.split(' ')[0]}
         </button>
       </div>
-      <div className="content" style={{ padding: 0 }}>
-        {tab === 'flights'  && <div style={{ padding: '14px 12px' }}><FlightsPage  {...pageProps} /></div>}
-        {tab === 'hotels'   && <div style={{ padding: '14px 12px' }}><HotelsPage   {...pageProps} /></div>}
-        {tab === 'group'    && <div style={{ padding: '14px 12px' }}><GroupExpensesPage {...pageProps} defaultType="ge" /></div>}
-        {tab === 'personal' && <div style={{ padding: '14px 12px' }}><PersonalExpensesPage {...pageProps} /></div>}
-        {tab === 'balances' && <div style={{ padding: '14px 12px' }}><BalancesPage {...pageProps} /></div>}
-        {tab === 'logs'     && <div style={{ padding: '14px 12px' }}><LogsPage     {...pageProps} /></div>}
+
+      <div className="content-scroll">
+        {tab === 'flights'  && <FlightsPage  {...pageProps} />}
+        {tab === 'hotels'   && <HotelsPage   {...pageProps} />}
+        {tab === 'group'    && <GroupExpensesPage {...pageProps} defaultType="ge" />}
+        {tab === 'personal' && <PersonalExpensesPage {...pageProps} />}
+        {tab === 'balances' && <BalancesPage {...pageProps} />}
+        {tab === 'logs'     && <LogsPage     {...pageProps} />}
       </div>
+
       <nav className="bottom-nav">
         {TABS.map(t => (
           <button key={t.id} className={`nav-item ${tab === t.id ? 'active' : ''}`} onClick={() => setTab(t.id)}>
