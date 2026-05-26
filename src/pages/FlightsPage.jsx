@@ -71,7 +71,7 @@ export default function FlightsPage({ currentUser, travelers }) {
   return (
     <>
       <div className="section-label">Everyone's flights</div>
-      {loading ? <div className="loading">Loading…</div> : (
+      {loading ? <div className="loading">Loading...</div> : (
         <div className="card">
           {travelers.map(t => {
             const flight = flights.find(f => f.traveler_id === t.id)
@@ -83,11 +83,11 @@ export default function FlightsPage({ currentUser, travelers }) {
                   <div className="avatar" style={{ background: c.bg, color: c.text }}>{initials(t.name)}</div>
                   <div style={{ minWidth: 0 }}>
                     <div className="fs13 fw6 truncate syne">
-                      {flight ? `${flight.origin} → ${flight.destination}` : t.name}
+                      {flight ? flight.origin + ' to ' + flight.destination : t.name}
                     </div>
                     <div className="mono" style={{ fontSize: 11, color: 'var(--warm-500)', marginTop: 2 }}>
                       {flight
-                        ? `${flight.departure_date ?? ''} · ${flight.airline ?? ''} ${flight.flight_number ?? ''}`
+                        ? (flight.departure_date ?? '') + ' ' + (flight.airline ?? '') + ' ' + (flight.flight_number ?? '')
                         : 'No flight entered'}
                     </div>
                   </div>
@@ -101,6 +101,7 @@ export default function FlightsPage({ currentUser, travelers }) {
           })}
         </div>
       )}
+
       <button className="add-btn" onClick={openForm}>
         <i className="ti ti-plane" />
         {myFlight() ? 'Edit my flight' : 'Add my flight'}
@@ -115,19 +116,29 @@ export default function FlightsPage({ currentUser, travelers }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
               <div className="form-field" style={{ marginBottom: 0 }}>
                 <label className="form-label">From</label>
-                <input className="form-input mono" placeholder="LAX" value={form.origin} onChange={e => setForm(f => ({ ...f, origin: e.target.value.toUpperCase() }))} />
+                <input className="form-input mono" placeholder="LAX" value={form.origin}
+                  onChange={e => setForm(f => ({ ...f, origin: e.target.value.toUpperCase() }))} />
               </div>
               <div className="form-field" style={{ marginBottom: 0 }}>
                 <label className="form-label">To</label>
-                <input className="form-input mono" placeholder="CDG" value={form.destination} onChange={e => setForm(f => ({ ...f, destination: e.target.value.toUpperCase() }))} />
+                <input className="form-input mono" placeholder="CDG" value={form.destination}
+                  onChange={e => setForm(f => ({ ...f, destination: e.target.value.toUpperCase() }))} />
               </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
               <div className="form-field" style={{ marginBottom: 0 }}>
                 <label className="form-label">Airline</label>
-                <input className="form-input" placeholder="Air France" value={form.airline} onChange={e => setForm(f => ({ ...f, airline: e.target.value }))} />
+                <input className="form-input" placeholder="Air France" value={form.airline}
+                  onChange={e => setForm(f => ({ ...f, airline: e.target.value }))} />
               </div>
               <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">Flight #</label>
-                <input className="form-input mono" placeholder="AF 65" value={form.flight_number} onCha
+                <label className="form-label">Flight number</label>
+                <input className="form-input mono" placeholder="AF 65" value={form.flight_number}
+                  onChange={e => setForm(f => ({ ...f, flight_number: e.target.value }))} />
+              </div>
+            </div>
+
+            <div className="form-field">
+              <label className="form-label">Departure date</label>
+              <input class
