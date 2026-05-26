@@ -44,8 +44,13 @@ export default function PersonalExpensesPage({ currentUser, travelers }) {
   async function loadData() {
     setLoading(true)
     const [{ data: pe }, { data: gep }] = await Promise.all([
-      supabase.from('personal_expenses').select('*, categories(name)').eq('traveler_id', currentUser.id).order('expense_date', { ascending: false }),
-      supabase.from('group_expense_participants').select('share_usd').eq('traveler_id', currentUser.id)
+      supabase.from('personal_expenses')
+        .select('*, categories(name)')
+        .eq('traveler_id', currentUser.id)
+        .order('expense_date', { ascending: false }),
+      supabase.from('group_expense_participants')
+        .select('share_usd')
+        .eq('traveler_id', currentUser.id)
     ])
     setExpenses(pe ?? [])
     setGeShare((gep ?? []).reduce((s, r) => s + (r.share_usd ?? 0), 0))
@@ -80,7 +85,7 @@ export default function PersonalExpensesPage({ currentUser, travelers }) {
   const peTotal = expenses.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
   const tripTotal = geShare + peTotal
 
-  if (pinState === 'idle') return <div className="loading">Loading…</div>
+  if (pinState === 'idle') return <div className="loading">Loading...</div>
 
   if (pinState === 'entry' || pinState === 'setup') {
     return (
@@ -88,11 +93,11 @@ export default function PersonalExpensesPage({ currentUser, travelers }) {
         <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'var(--cardinal-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
           <i className="ti ti-lock" style={{ fontSize: 28, color: 'var(--cardinal)' }} />
         </div>
-        <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800, color: 'var(--warm-800)' }}>Personal expenses</div>
-        <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 13, color: 'var(--warm-500)', marginTop: 6, marginBottom: 4, textAlign: 'center' }}>
-          {pinState === 'setup' ? 'Create a 4-digit PIN to protect your personal expenses' : `Enter your PIN, ${currentUser?.name?.split(' ')[0]}`}
+        <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800 }}>Personal expenses</div>
+        <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 13, color: 'var(--warm-500)', marginTop: 6, textAlign: 'center' }}>
+          {pinState === 'setup' ? 'Create a 4-digit PIN' : 'Enter your PIN, ' + (currentUser?.name?.split(' ')[0] ?? '')}
         </div>
-        {pinError && <div style={{ color: 'var(--red-err)', fontSize: 13, marginTop: 4, fontFamily: 'Syne, sans-serif' }}>{pinError}</div>}
+        {pinError && <div style={{ color: 'var(--red-err)', fontSize: 13, marginTop: 6, fontFamily: 'Syne, sans-serif' }}>{pinError}</div>}
         <div className="pin-dots">
           {[0,1,2,3].map(i => <div key={i} className={`pin-dot ${i < pinBuf.length ? 'filled' : ''}`} />)}
         </div>
@@ -130,13 +135,12 @@ export default function PersonalExpensesPage({ currentUser, travelers }) {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <div className="section-label" style={{ marginBottom: 0 }}>My personal expenses</div>
-        <button onClick={() => { setPinState('entry'); setPinBuf(''); setPinError('') }}
-          style={{ fontSize: 11, color: 'var(--warm-500)', background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'Syne, sans-serif', fontWeight: 700 }}>
+        <button onClick={() => { setPinState('entry'); setPinBuf(''); setPinError('') }} style={{ fontSize: 11, color: 'var(--warm-500)', background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'Syne, sans-serif', fontWeight: 700 }}>
           <i className="ti ti-lock" style={{ fontSize: 13 }} /> Lock
         </button>
       </div>
 
-      {loading ? <div className="loading">Loading…</div> : expenses.length === 0 ? (
+      {loading ? <div className="loading">Loading...</div> : expenses.length === 0 ? (
         <div className="empty"><i className="ti ti-receipt" /><p>No personal expenses yet</p></div>
       ) : (
         <div className="card">
@@ -152,7 +156,7 @@ export default function PersonalExpensesPage({ currentUser, travelers }) {
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <div className="fs13 fw6 truncate syne">{e.description}</div>
-                    <div className="mono" style={{ fontSize: 11, color: 'var(--warm-500)', marginTop: 2 }}>{e.expense_date}</div>
+                    <div className="mono" style={{ fontSize: 11, color: 'var(--warm-500)', marginTop: 2 }}>{e.expense_date} · {e.categories?.name ?? 'Other'}</div>
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -168,7 +172,7 @@ export default function PersonalExpensesPage({ currentUser, travelers }) {
       )}
 
       <button className="add-btn" onClick={() => setShowKeypad(true)}>
-        <i className="ti ti-plus" /> Log personal expense
+        <i className="ti ti-plus" /> Log Expense
       </button>
 
       {showKeypad && (
