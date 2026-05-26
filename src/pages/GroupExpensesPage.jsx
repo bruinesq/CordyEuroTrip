@@ -1,21 +1,44 @@
 import { useState, useEffect } from 'react'
-import { supabase, fmtUSD, CATEGORY_ICONS, CATEGORY_COLORS, TRAVELER_COLORS } from '../lib/supabase'
+import { supabase, fmtUSD, CATEGORY_ICONS, CATEGORY_COLORS, TRAVELER_COLORS, initials } from '../lib/supabase'
 import Keypad from '../components/Keypad'
 
 export default function GroupExpensesPage({ currentUser, travelers, defaultType = 'ge' }) {
   const [expenses, setExpenses] = useState([])
+  const [participants, setParticipants] = useState({})
+  const [categories, setCategories] = useState({})
   const [loading, setLoading] = useState(true)
   const [showKeypad, setShowKeypad] = useState(false)
+  const [sortBy, setSortBy] = useState('date')
 
   useEffect(() => { load() }, [])
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase
+    const { data: expData } = await supabase
       .from('group_expenses')
-      .select('*, travelers(name), categories(name), group_expense_participants(traveler_id, share_usd)')
+      .select('*')
       .order('expense_date', { ascending: false })
-    setExpenses(data ?? [])
+
+    const { data: partData } = await supabase
+      .from('group_expense_participants')
+      .select('expense_id, traveler_id, share_usd')
+
+    const { data: catData } = await supabase
+      .from('categories')
+      .select('id, name')
+
+    const catMap = {}
+    for (const c of catData ?? []) catMap[c.id] = c.name
+
+    const partMap = {}
+    for (const p of partData ?? []) {
+      if (!partMap[p.expense_id]) partMap[p.expense_id] = []
+      partMap[p.expense_id].push(p)
+    }
+
+    setExpenses(expData ?? [])
+    setParticipants(partMap)
+    setCategories(catMap)
     setLoading(false)
   }
 
@@ -66,10 +89,19 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
 
   const totalUSD = expenses.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
   const myShare  = expenses.reduce((s, e) => {
-    const p = e.group_expense_participants?.find(p => p.traveler_id === currentUser?.id)
+    const p = (participants[e.id] ?? []).find(p => p.traveler_id === currentUser?.id)
     return s + (p?.share_usd ?? 0)
   }, 0)
   const iPaid = expenses.filter(e => e.paid_by === currentUser?.id).reduce((s, e) => s + (e.amount_usd ?? 0), 0)
+
+  const sorted = [...expenses].sort((a, b) => {
+    if (sortBy === 'payer') {
+      const ta = travelers.find(t => t.id === a.paid_by)?.name ?? ''
+      const tb = travelers.find(t => t.id === b.paid_by)?.name ?? ''
+      return ta.localeCompare(tb)
+    }
+    return (b.expense_date ?? '').localeCompare(a.expense_date ?? '')
+  })
 
   return (
     <>
@@ -80,22 +112,31 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
         <div className="metric"><div className="metric-label">Net</div><div className="metric-value" style={{ color: iPaid - myShare >= 0 ? 'var(--green)' : 'var(--red-err)' }}>{fmtUSD(iPaid - myShare)}</div></div>
       </div>
 
-      <button className="add-btn" onClick={() => setShowKeypad(true)} style={{ marginBottom: 16 }}>
+      <button className="add-btn" onClick={() => setShowKeypad(true)} style={{ marginBottom: 14 }}>
         <i className="ti ti-plus" /> Log Expense
       </button>
 
-      <div className="section-label">Group expense history</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <div className="section-label" style={{ marginBottom: 0 }}>Group expense history</div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button className={`sort-btn ${sortBy === 'date' ? 'active' : ''}`} onClick={() => setSortBy('date')}>Date</button>
+          <button className={`sort-btn ${sortBy === 'payer' ? 'active' : ''}`} onClick={() => setSortBy('payer')}>Paid by</button>
+        </div>
+      </div>
+
       {loading ? <div className="loading">Loading...</div> : expenses.length === 0 ? (
         <div className="empty"><i className="ti ti-receipt" /><p>No group expenses yet</p></div>
       ) : (
-        <div className="card">
-          {expenses.map(e => {
+        <div className="card" style={{ maxHeight: '55vh', overflowY: 'auto' }}>
+          {sorted.map(e => {
             const payer = travelers.find(t => t.id === e.paid_by)
-            const catName = e.categories?.name ?? 'Other'
+            const catName = categories[e.category_id] ?? 'Other'
             const cc = CATEGORY_COLORS[catName] ?? { bg: '#F7F0E8', icon: '#8A7560' }
             const icon = CATEGORY_ICONS[catName] ?? 'ti-dots'
-            const count = e.group_expense_participants?.length ?? 0
-            const share = count > 0 ? (e.amount_usd / count).toFixed(2) : '?'
+            const parts = participants[e.id] ?? []
+            const count = parts.length
+            const myPart = parts.find(p => p.traveler_id === currentUser?.id)
+            const pc = TRAVELER_COLORS[payer?.name] ?? { bg: '#FFE8E8', text: '#990000' }
             return (
               <div key={e.id} className="row">
                 <div className="row-left">
@@ -104,14 +145,15 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <div className="fs13 fw6 truncate syne">{e.description}</div>
-                    <div className="mono" style={{ fontSize: 11, color: 'var(--warm-500)', marginTop: 2 }}>
-                      {payer?.name?.split(' ')[0]} · {e.expense_date} · {count} people
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+                      <div className="avatar avatar-sm" style={{ background: pc.bg, color: pc.text }}>{initials(payer?.name)}</div>
+                      <span className="mono" style={{ fontSize: 11, color: 'var(--warm-500)' }}>{e.expense_date} · {count} ppl</span>
                     </div>
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
                   <div className="fw6 fs13 mono">{fmtUSD(e.amount_usd)}</div>
-                  <div className="mono" style={{ fontSize: 11, color: 'var(--warm-500)' }}>${share} ea.</div>
+                  {myPart && <div className="mono" style={{ fontSize: 11, color: 'var(--cardinal)' }}>my share: {fmtUSD(myPart.share_usd)}</div>}
                 </div>
                 <button className="icon-action" style={{ marginLeft: 6 }} onClick={() => deleteExpense(e.id)}>
                   <i className="ti ti-trash" style={{ color: 'var(--red-err)' }} />
