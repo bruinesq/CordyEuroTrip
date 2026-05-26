@@ -1,0 +1,32 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* USC Cardinal & Gold palette */
+  --cardinal:       #990000;
+  --cardinal-dark:  #6B0000;
+  --cardinal-light: #FFE8E8;
+  --cardinal-mid:   #CC1100;
+  --gold:           #FFCC00;
+  --gold-light:     #FFF8D6;
+  --gold-dark:      #B8920A;
+  --gold-mid:       #F5C518;
+
+  /* Accent: warm blush & champagne */
+  --blush:          #FDEDF2;
+  --blush-mid:      #F4B8CE;
+  --blush-dark:     #C2476D;
+  --champagne:      #FDF6EC;
+  --champagne-mid:  #E8C882;
+  --champagne-dark: #9A6C1A;
+
+  /* Neutral warm */
+  --cream:          #FFFBF5;
+  --warm-100:       #F7F0E8;
+  --warm-200:       #EDE3D8;
+  --warm-300:       #C9B99E;
+  --warm-500:       #8A7560;
+  --warm-800:       #3D2E1E;
+
+  /* Semantic */
+  --green:          #1B7A4A;
+  --green-light:    #E3F5EC;
