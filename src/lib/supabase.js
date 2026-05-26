@@ -14,14 +14,14 @@ export const CURRENCY_SYMBOLS = {
 }
 
 export const TRAVELER_COLORS = {
-  Ava:     { bg: '#FFE8E8', text: '#990000' },
-  Camille: { bg: '#FFF8D6', text: '#B8920A' },
-  Cordy:   { bg: '#FDEDF2', text: '#C2476D' },
-  Dillon:  { bg: '#EAF0FF', text: '#3B52CC' },
-  Dylan:   { bg: '#F0E8FF', text: '#7B3CC3' },
-  Melia:   { bg: '#E8F5EA', text: '#1B7A4A' },
-  Reagan:  { bg: '#FFF0E8', text: '#C45E1A' },
-  Tina:    { bg: '#FDF6EC', text: '#9A6C1A' },
+  'Ava Dimond':          { bg: '#FFE8E8', text: '#990000' },
+  'Camille Shaw':        { bg: '#FFF8D6', text: '#B8920A' },
+  'Christina Toldalagi': { bg: '#FDEDF2', text: '#C2476D' },
+  'Cordy Nguyen':        { bg: '#EAF0FF', text: '#3B52CC' },
+  'Dillon O\'Shea':      { bg: '#F0E8FF', text: '#7B3CC3' },
+  'Dylan Mansourian':    { bg: '#E8F5EA', text: '#1B7A4A' },
+  'Melia Harlan':        { bg: '#FFF0E8', text: '#C45E1A' },
+  'Regan Ramsey':        { bg: '#FDF6EC', text: '#9A6C1A' },
 }
 
 export const CATEGORY_ICONS = {
@@ -62,5 +62,7 @@ export function fmtUSD(amount) {
 }
 
 export function initials(name) {
-  return name?.slice(0, 2).toUpperCase() ?? '??'
+  if (!name) return '??'
+  const parts = name.trim().split(' ')
+  return (parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase()
 }
