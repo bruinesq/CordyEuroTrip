@@ -28,28 +28,30 @@ export default function FlightsPage({ currentUser, travelers }) {
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase
-      .from('flights')
-      .select('*')
-      .order('departure_date')
+    const { data } = await supabase.from('flights').select('*').order('departure_date')
     setFlights(data ?? [])
     setLoading(false)
   }
 
   async function loadPanelFlights(travelerId) {
     setPanelLoading(true)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('flights')
       .select('*')
       .eq('traveler_id', travelerId)
-      .order('departure_date')
-    setPanelFlights(data ?? [])
+      .order('departure_date', { ascending: true })
+    if (!error) setPanelFlights(data ?? [])
     setPanelLoading(false)
   }
 
   async function openPanel(traveler) {
     setSelectedTraveler(traveler)
     await loadPanelFlights(traveler.id)
+  }
+
+  function closePanel() {
+    setSelectedTraveler(null)
+    setPanelFlights([])
   }
 
   function travelerSummary(tid) {
@@ -64,22 +66,15 @@ export default function FlightsPage({ currentUser, travelers }) {
   function openEdit(fl) {
     setEditFlight(fl)
     setForm({
-      origin: fl.origin ?? '',
-      destination: fl.destination ?? '',
-      flight_number: fl.flight_number ?? '',
-      airline: fl.airline ?? '',
-      departure_date: fl.departure_date ?? '',
-      departure_time: fl.departure_time ?? '',
-      arrival_time: fl.arrival_time ?? '',
-      return_date: fl.return_date ?? '',
-      return_flight_number: fl.return_flight_number ?? '',
-      return_airline: fl.return_airline ?? '',
-      return_departure_time: fl.return_departure_time ?? '',
-      return_arrival_time: fl.return_arrival_time ?? '',
-      status: fl.status ?? 'confirmed',
-      notes: fl.notes ?? ''
+      origin: fl.origin ?? '', destination: fl.destination ?? '',
+      flight_number: fl.flight_number ?? '', airline: fl.airline ?? '',
+      departure_date: fl.departure_date ?? '', departure_time: fl.departure_time ?? '',
+      arrival_time: fl.arrival_time ?? '', return_date: fl.return_date ?? '',
+      return_flight_number: fl.return_flight_number ?? '', return_airline: fl.return_airline ?? '',
+      return_departure_time: fl.return_departure_time ?? '', return_arrival_time: fl.return_arrival_time ?? '',
+      status: fl.status ?? 'confirmed', notes: fl.notes ?? ''
     })
-    setSelectedTraveler(null)
+    closePanel()
     setShowForm(true)
   }
 
@@ -92,7 +87,6 @@ export default function FlightsPage({ currentUser, travelers }) {
       await supabase.from('flights').insert({ ...form, traveler_id: currentUser.id })
     }
     await load()
-    if (selectedTraveler) await loadPanelFlights(selectedTraveler.id)
     setSaving(false)
     setShowForm(false)
   }
@@ -156,17 +150,17 @@ export default function FlightsPage({ currentUser, travelers }) {
       </button>
 
       {selectedTraveler && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex' }} onClick={() => setSelectedTraveler(null)}>
+        <div className="panel-overlay" onClick={closePanel}>
           <div style={{ flex: 1 }} />
-          <div onClick={e => e.stopPropagation()} style={{ width: '88vw', maxWidth: 380, background: 'var(--cream)', boxShadow: '-4px 0 24px rgba(0,0,0,0.2)', height: '100%', overflowY: 'auto', padding: '52px 16px 32px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div className="slide-panel" onClick={e => e.stopPropagation()}>
+            <div className="slide-panel-header">
               <div>
                 <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 17 }}>{selectedTraveler.name}</div>
                 <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 11, color: 'var(--warm-500)', textTransform: 'uppercase', letterSpacing: '.05em' }}>
                   {panelFlights.length} flight{panelFlights.length !== 1 ? 's' : ''}
                 </div>
               </div>
-              <button onClick={() => setSelectedTraveler(null)} style={{ background: 'none', border: 'none', fontSize: 24, color: 'var(--warm-500)' }}>
+              <button className="slide-panel-close" onClick={closePanel}>
                 <i className="ti ti-x" />
               </button>
             </div>
@@ -178,7 +172,7 @@ export default function FlightsPage({ currentUser, travelers }) {
             ) : panelFlights.map(fl => {
               const sc = STATUS[fl.status] ?? STATUS.pending
               return (
-                <div key={fl.id} className="card" style={{ marginBottom: 12 }}>
+                <div key={fl.id} className="card" style={{ marginBottom: 12, flexShrink: 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                     <span className="badge" style={{ background: sc.bg, color: sc.text }}>{sc.label}</span>
                     {selectedTraveler.id === currentUser.id && (
@@ -188,19 +182,16 @@ export default function FlightsPage({ currentUser, travelers }) {
                       </div>
                     )}
                   </div>
-
                   <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--cardinal)', marginBottom: 10 }}>
                     {fl.origin} → {fl.destination}
                   </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 4 }}>
                     <InfoRow label="Airline" value={fl.airline} />
                     <InfoRow label="Flight #" value={fl.flight_number} />
                     <InfoRow label="Date" value={fl.departure_date} />
                     <InfoRow label="Departs" value={fl.departure_time} />
                     <InfoRow label="Arrives" value={fl.arrival_time} />
                   </div>
-
                   {fl.return_date && (
                     <div style={{ borderTop: '1px solid var(--warm-100)', paddingTop: 10, marginTop: 6 }}>
                       <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 11, fontWeight: 800, color: 'var(--warm-500)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>Return flight</div>
@@ -213,7 +204,6 @@ export default function FlightsPage({ currentUser, travelers }) {
                       </div>
                     </div>
                   )}
-
                   {fl.notes && (
                     <div style={{ borderTop: '1px solid var(--warm-100)', paddingTop: 8, marginTop: 6 }}>
                       <div className="mono" style={{ fontSize: 11, color: 'var(--warm-500)' }}>{fl.notes}</div>
@@ -224,10 +214,14 @@ export default function FlightsPage({ currentUser, travelers }) {
             })}
 
             {selectedTraveler.id === currentUser.id && (
-              <button className="add-btn" onClick={() => { setSelectedTraveler(null); openAdd() }}>
+              <button className="add-btn" style={{ flexShrink: 0, marginTop: 8 }} onClick={() => { closePanel(); openAdd() }}>
                 <i className="ti ti-plus" /> Add another flight
               </button>
             )}
+
+            <button onClick={closePanel} style={{ marginTop: 12, width: '100%', padding: '13px', background: 'var(--warm-100)', color: 'var(--warm-800)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700, flexShrink: 0 }}>
+              Close
+            </button>
           </div>
         </div>
       )}
@@ -236,7 +230,10 @@ export default function FlightsPage({ currentUser, travelers }) {
         <div className="sheet-overlay" onClick={e => e.target === e.currentTarget && setShowForm(false)}>
           <div className="sheet">
             <div className="sheet-handle" />
-            <div className="sheet-title">{editFlight ? 'Edit flight' : 'Add flight'}</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div className="sheet-title" style={{ marginBottom: 0 }}>{editFlight ? 'Edit flight' : 'Add flight'}</div>
+              <button onClick={() => setShowForm(false)} className="slide-panel-close"><i className="ti ti-x" /></button>
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
               <div className="form-field" style={{ marginBottom: 0 }}>
@@ -248,7 +245,6 @@ export default function FlightsPage({ currentUser, travelers }) {
                 <input className="form-input mono" placeholder="CDG" value={form.destination} onChange={e => setForm(p => ({ ...p, destination: e.target.value.toUpperCase() }))} />
               </div>
             </div>
-
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
               <div className="form-field" style={{ marginBottom: 0 }}>
                 <label className="form-label">Airline</label>
@@ -259,7 +255,6 @@ export default function FlightsPage({ currentUser, travelers }) {
                 <input className="form-input mono" placeholder="AF 65" value={form.flight_number} onChange={set('flight_number')} />
               </div>
             </div>
-
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 10 }}>
               <div className="form-field" style={{ marginBottom: 0 }}>
                 <label className="form-label">Date</label>
@@ -274,7 +269,6 @@ export default function FlightsPage({ currentUser, travelers }) {
                 <input className="form-input mono" type="time" value={form.arrival_time} onChange={set('arrival_time')} />
               </div>
             </div>
-
             <div className="form-field">
               <label className="form-label">Status</label>
               <select className="form-select" value={form.status} onChange={set('status')}>
@@ -286,12 +280,9 @@ export default function FlightsPage({ currentUser, travelers }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '12px 0 8px' }}>
               <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 11, fontWeight: 700, color: 'var(--warm-500)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Return flight (optional)</div>
               {(form.return_date || form.return_airline || form.return_flight_number) && (
-                <button onClick={clearReturn} style={{ background: 'none', border: 'none', fontFamily: 'Syne, sans-serif', fontSize: 11, fontWeight: 700, color: 'var(--red-err)', cursor: 'pointer' }}>
-                  Clear return
-                </button>
+                <button onClick={clearReturn} style={{ background: 'none', border: 'none', fontFamily: 'Syne, sans-serif', fontSize: 11, fontWeight: 700, color: 'var(--red-err)', cursor: 'pointer' }}>Clear return</button>
               )}
             </div>
-
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
               <div className="form-field" style={{ marginBottom: 0 }}>
                 <label className="form-label">Airline</label>
@@ -302,7 +293,6 @@ export default function FlightsPage({ currentUser, travelers }) {
                 <input className="form-input mono" placeholder="AF 66" value={form.return_flight_number} onChange={set('return_flight_number')} />
               </div>
             </div>
-
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 10 }}>
               <div className="form-field" style={{ marginBottom: 0 }}>
                 <label className="form-label">Date</label>
@@ -317,15 +307,19 @@ export default function FlightsPage({ currentUser, travelers }) {
                 <input className="form-input mono" type="time" value={form.return_arrival_time} onChange={set('return_arrival_time')} />
               </div>
             </div>
-
             <div className="form-field">
               <label className="form-label">Notes</label>
               <input className="form-input" placeholder="Seat numbers, terminal, booking ref..." value={form.notes} onChange={set('notes')} />
             </div>
 
-            <button className="kp-submit" onClick={save} disabled={saving}>
-              {saving ? 'Saving...' : 'Save flight'}
-            </button>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 4 }}>
+              <button onClick={() => setShowForm(false)} style={{ padding: '14px', background: 'var(--warm-100)', color: 'var(--warm-800)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>
+                Cancel
+              </button>
+              <button className="kp-submit" style={{ margin: 0 }} onClick={save} disabled={saving}>
+                {saving ? 'Saving...' : 'Save flight'}
+              </button>
+            </div>
           </div>
         </div>
       )}
