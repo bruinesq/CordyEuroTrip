@@ -8,6 +8,7 @@ export default function PersonalExpensesPage({ currentUser, travelers }) {
   const [pinBuf, setPinBuf] = useState('')
   const [pinError, setPinError] = useState('')
   const [expenses, setExpenses] = useState([])
+  const [catMap, setCatMap] = useState({})
   const [geShare, setGeShare] = useState(0)
   const [loading, setLoading] = useState(false)
   const [showKeypad, setShowKeypad] = useState(false)
@@ -43,15 +44,14 @@ export default function PersonalExpensesPage({ currentUser, travelers }) {
 
   async function loadData() {
     setLoading(true)
-    const [{ data: pe }, { data: gep }] = await Promise.all([
-      supabase.from('personal_expenses')
-        .select('*, categories(name)')
-        .eq('traveler_id', currentUser.id)
-        .order('expense_date', { ascending: false }),
-      supabase.from('group_expense_participants')
-        .select('share_usd')
-        .eq('traveler_id', currentUser.id)
+    const [{ data: pe }, { data: gep }, { data: cats }] = await Promise.all([
+      supabase.from('personal_expenses').select('*').eq('traveler_id', currentUser.id).order('expense_date', { ascending: false }),
+      supabase.from('group_expense_participants').select('share_usd').eq('traveler_id', currentUser.id),
+      supabase.from('categories').select('id, name')
     ])
+    const map = {}
+    for (const c of cats ?? []) map[c.id] = c.name
+    setCatMap(map)
     setExpenses(pe ?? [])
     setGeShare((gep ?? []).reduce((s, r) => s + (r.share_usd ?? 0), 0))
     setLoading(false)
@@ -95,7 +95,7 @@ export default function PersonalExpensesPage({ currentUser, travelers }) {
         </div>
         <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800 }}>Personal expenses</div>
         <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 13, color: 'var(--warm-500)', marginTop: 6, textAlign: 'center' }}>
-          {pinState === 'setup' ? 'Create a 4-digit PIN' : 'Enter your PIN, ' + (currentUser?.name?.split(' ')[0] ?? '')}
+          {pinState === 'setup' ? 'Create a 4-digit PIN to protect your personal expenses' : 'Enter your PIN, ' + (currentUser?.name?.split(' ')[0] ?? '')}
         </div>
         {pinError && <div style={{ color: 'var(--red-err)', fontSize: 13, marginTop: 6, fontFamily: 'Syne, sans-serif' }}>{pinError}</div>}
         <div className="pin-dots">
@@ -143,9 +143,9 @@ export default function PersonalExpensesPage({ currentUser, travelers }) {
       {loading ? <div className="loading">Loading...</div> : expenses.length === 0 ? (
         <div className="empty"><i className="ti ti-receipt" /><p>No personal expenses yet</p></div>
       ) : (
-        <div className="card">
+        <div className="card" style={{ maxHeight: '50vh', overflowY: 'auto' }}>
           {expenses.map(e => {
-            const catName = e.categories?.name ?? 'Other'
+            const catName = catMap[e.category_id] ?? 'Other'
             const cc = CATEGORY_COLORS[catName] ?? { bg: '#F7F0E8', icon: '#8A7560' }
             const icon = CATEGORY_ICONS[catName] ?? 'ti-dots'
             return (
@@ -156,7 +156,9 @@ export default function PersonalExpensesPage({ currentUser, travelers }) {
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <div className="fs13 fw6 truncate syne">{e.description}</div>
-                    <div className="mono" style={{ fontSize: 11, color: 'var(--warm-500)', marginTop: 2 }}>{e.expense_date} · {e.categories?.name ?? 'Other'}</div>
+                    <div className="mono" style={{ fontSize: 11, color: 'var(--warm-500)', marginTop: 2 }}>
+                      {e.expense_date} · {catName}
+                    </div>
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -171,12 +173,18 @@ export default function PersonalExpensesPage({ currentUser, travelers }) {
         </div>
       )}
 
-      <button className="add-btn" onClick={() => setShowKeypad(true)}>
+      <button className="add-btn" onClick={() => setShowKeypad(true)} style={{ marginTop: 8 }}>
         <i className="ti ti-plus" /> Log Expense
       </button>
 
       {showKeypad && (
-        <Keypad onSave={handleSave} onClose={() => setShowKeypad(false)} travelers={travelers} currentUser={currentUser} defaultType="pe" />
+        <Keypad
+          onSave={handleSave}
+          onClose={() => setShowKeypad(false)}
+          travelers={travelers}
+          currentUser={currentUser}
+          defaultType="pe"
+        />
       )}
     </>
   )
