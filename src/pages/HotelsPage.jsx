@@ -3,6 +3,7 @@ import { supabase, TRAVELER_COLORS, initials, fmtUSD, getExchangeRate, CURRENCIE
 
 export default function HotelsPage({ currentUser, travelers }) {
   const [hotels, setHotels] = useState([])
+  const [guestMap, setGuestMap] = useState({})
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editHotel, setEditHotel] = useState(null)
@@ -16,8 +17,24 @@ export default function HotelsPage({ currentUser, travelers }) {
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase.from('hotels').select('*, travelers(name), hotel_guests(traveler_id, travelers(name))').order('check_in')
-    setHotels(data ?? [])
+    const { data: hotelData } = await supabase
+      .from('hotels')
+      .select('*')
+      .order('check_in')
+
+    const { data: guestData } = await supabase
+      .from('hotel_guests')
+      .select('hotel_id, traveler_id')
+
+    setHotels(hotelData ?? [])
+
+    const map = {}
+    for (const g of guestData ?? []) {
+      if (!map[g.hotel_id]) map[g.hotel_id] = []
+      const t = travelers.find(t => t.id === g.traveler_id)
+      if (t) map[g.hotel_id].push(t)
+    }
+    setGuestMap(map)
     setLoading(false)
   }
 
@@ -32,8 +49,23 @@ export default function HotelsPage({ currentUser, travelers }) {
 
   function openEdit(h) {
     setEditHotel(h)
-    setForm({ hotel_name: h.hotel_name ?? '', city: h.city ?? '', country: h.country ?? '', address: h.address ?? '', phone: h.phone ?? '', confirmation_number: h.confirmation_number ?? '', check_in: h.check_in ?? '', check_in_time: h.check_in_time ?? '', check_out: h.check_out ?? '', check_out_time: h.check_out_time ?? '', original_amount: h.original_amount ?? h.total_cost_usd ?? '', original_currency: h.original_currency ?? 'USD', notes: h.notes ?? '' })
-    setGuests(h.hotel_guests?.map(g => g.traveler_id) ?? [])
+    setForm({
+      hotel_name: h.hotel_name ?? '',
+      city: h.city ?? '',
+      country: h.country ?? '',
+      address: h.address ?? '',
+      phone: h.phone ?? '',
+      confirmation_number: h.confirmation_number ?? '',
+      check_in: h.check_in ?? '',
+      check_in_time: h.check_in_time ?? '',
+      check_out: h.check_out ?? '',
+      check_out_time: h.check_out_time ?? '',
+      original_amount: h.original_amount ?? h.total_cost_usd ?? '',
+      original_currency: h.original_currency ?? 'USD',
+      notes: h.notes ?? ''
+    })
+    const hGuests = guestMap[h.id] ?? []
+    setGuests(hGuests.map(t => t.id))
     setSelectedHotel(null)
     setShowForm(true)
   }
@@ -43,14 +75,33 @@ export default function HotelsPage({ currentUser, travelers }) {
     setSaving(true)
     const rate = await getExchangeRate(form.original_currency, 'USD')
     const usd = parseFloat((parseFloat(form.original_amount) * rate).toFixed(2))
-    const payload = { hotel_name: form.hotel_name, city: form.city, country: form.country, address: form.address, phone: form.phone, confirmation_number: form.confirmation_number, check_in: form.check_in, check_in_time: form.check_in_time, check_out: form.check_out, check_out_time: form.check_out_time, original_amount: parseFloat(form.original_amount), original_currency: form.original_currency, total_cost_usd: usd, exchange_rate: rate, notes: form.notes }
+    const payload = {
+      hotel_name: form.hotel_name,
+      city: form.city,
+      country: form.country,
+      address: form.address,
+      phone: form.phone,
+      confirmation_number: form.confirmation_number,
+      check_in: form.check_in,
+      check_in_time: form.check_in_time,
+      check_out: form.check_out,
+      check_out_time: form.check_out_time,
+      original_amount: parseFloat(form.original_amount),
+      original_currency: form.original_currency,
+      total_cost_usd: usd,
+      exchange_rate: rate,
+      notes: form.notes
+    }
+    let hotelId = editHotel?.id
     if (editHotel) {
       await supabase.from('hotels').update(payload).eq('id', editHotel.id)
       await supabase.from('hotel_guests').delete().eq('hotel_id', editHotel.id)
-      if (guests.length) await supabase.from('hotel_guests').insert(guests.map(tid => ({ hotel_id: editHotel.id, traveler_id: tid })))
     } else {
       const { data: h } = await supabase.from('hotels').insert({ ...payload, booked_by: currentUser.id }).select().single()
-      if (h && guests.length) await supabase.from('hotel_guests').insert(guests.map(tid => ({ hotel_id: h.id, traveler_id: tid })))
+      hotelId = h?.id
+    }
+    if (hotelId && guests.length) {
+      await supabase.from('hotel_guests').insert(guests.map(tid => ({ hotel_id: hotelId, traveler_id: tid })))
     }
     await load()
     setSaving(false)
@@ -60,148 +111,144 @@ export default function HotelsPage({ currentUser, travelers }) {
   async function deleteHotel(id) {
     if (!confirm('Delete this hotel?')) return
     await supabase.from('hotels').delete().eq('id', id)
-    await load()
     setSelectedHotel(null)
+    await load()
   }
 
-  function toggleGuest(id) { setGuests(g => g.includes(id) ? g.filter(x => x !== id) : [...g, id]) }
+  function toggleGuest(id) {
+    setGuests(g => g.includes(id) ? g.filter(x => x !== id) : [...g, id])
+  }
 
-  const sorted = [...hotels].sort((a, b) => (a.check_in ?? '').localeCompare(b.check_in ?? ''))
+  function HotelCard({ h }) {
+    const hotelGuests = guestMap[h.id] ?? []
+    const guestCount = hotelGuests.length
+    const perPerson = guestCount > 0 ? h.total_cost_usd / guestCount : 0
+    const isOld = h.check_out && h.check_out < new Date().toISOString().slice(0, 10)
+    const booker = travelers.find(t => t.id === h.booked_by)
+    return (
+      <div className="card" style={{ marginBottom: 10, opacity: isOld ? 0.6 : 1, cursor: 'pointer' }} onClick={() => setSelectedHotel(h)}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 15 }}>{h.hotel_name}</div>
+            <div className="mono" style={{ fontSize: 11, color: 'var(--warm-500)', marginTop: 2 }}>{h.city}{h.country ? ', ' + h.country : ''}</div>
+          </div>
+          <i className="ti ti-chevron-right" style={{ fontSize: 16, color: 'var(--warm-300)', marginLeft: 8 }} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+          <span className="badge mono" style={{ background: isOld ? 'var(--warm-100)' : 'var(--cardinal-light)', color: isOld ? 'var(--warm-300)' : 'var(--cardinal)' }}>
+            {h.check_in} → {h.check_out}
+          </span>
+          <span className="mono fw6" style={{ fontSize: 13, color: 'var(--green)' }}>{fmtUSD(h.total_cost_usd)}</span>
+        </div>
+        <div className="mono" style={{ fontSize: 11, color: 'var(--warm-500)', marginTop: 6 }}>
+          Booked by {booker?.name?.split(' ')[0] ?? '?'} · {fmtUSD(perPerson)}/person
+        </div>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 8 }}>
+          {hotelGuests.map(t => {
+            const gc = TRAVELER_COLORS[t.name] ?? { bg: '#FFE8E8', text: '#990000' }
+            return <div key={t.id} className="avatar avatar-sm" style={{ background: gc.bg, color: gc.text }}>{initials(t.name)}</div>
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  function DetailRow({ label, value, link }) {
+    if (!value) return null
+    return (
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 2 }}>{label}</div>
+        {link ? <a href={link} className="mono" style={{ fontSize: 13, color: 'var(--cardinal)', textDecoration: 'none' }}>{value}</a>
+               : <div className="mono" style={{ fontSize: 13 }}>{value}</div>}
+      </div>
+    )
+  }
 
   return (
     <>
       <div className="section-label">Accommodations</div>
-      {loading ? <div className="loading">Loading...</div> : sorted.length === 0 ? (
+      {loading ? <div className="loading">Loading...</div> : hotels.length === 0 ? (
         <div className="empty"><i className="ti ti-building" /><p>No hotels yet</p></div>
-      ) : (
-        <div style={{ overflowY: 'auto' }}>
-          {sorted.map((h, idx) => {
-            const booker = travelers.find(t => t.id === h.booked_by)
-            const guestCount = h.hotel_guests?.length ?? 0
-            const perPerson = guestCount > 0 ? (h.total_cost_usd / guestCount) : 0
-            const isOld = h.check_out && h.check_out < new Date().toISOString().slice(0,10)
-            return (
-              <div key={h.id} className="card" style={{ marginBottom: 10, opacity: isOld ? 0.6 : 1, cursor: 'pointer' }} onClick={() => setSelectedHotel(h)}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 15, color: isOld ? 'var(--warm-300)' : 'var(--warm-800)' }}>{h.hotel_name}</div>
-                    <div className="mono" style={{ fontSize: 11, color: 'var(--warm-500)', marginTop: 2 }}>{h.city}, {h.country}</div>
-                  </div>
-                  <i className="ti ti-chevron-right" style={{ fontSize: 16, color: 'var(--warm-300)', marginLeft: 8 }} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-                  <span className="badge mono" style={{ background: isOld ? 'var(--warm-100)' : 'var(--cardinal-light)', color: isOld ? 'var(--warm-300)' : 'var(--cardinal)' }}>
-                    {h.check_in} → {h.check_out}
-                  </span>
-                  <span className="mono fw6" style={{ fontSize: 13, color: 'var(--green)' }}>{fmtUSD(h.total_cost_usd)}</span>
-                </div>
-                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 8 }}>
-                  {h.hotel_guests?.map(g => {
-                    const gc = TRAVELER_COLORS[g.travelers?.name] ?? { bg: '#FFE8E8', text: '#990000' }
-                    return <div key={g.traveler_id} className="avatar avatar-sm" style={{ background: gc.bg, color: gc.text }}>{initials(g.travelers?.name)}</div>
-                  })}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
+      ) : hotels.map(h => <HotelCard key={h.id} h={h} />)}
 
       <button className="add-btn" onClick={openNew}><i className="ti ti-plus" /> Add hotel</button>
 
-      {selectedHotel && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex' }} onClick={() => setSelectedHotel(null)}>
-          <div style={{ flex: 1 }} />
-          <div onClick={e => e.stopPropagation()} style={{ width: '88vw', maxWidth: 380, background: 'var(--cream)', boxShadow: '-4px 0 24px rgba(0,0,0,0.2)', height: '100%', overflowY: 'auto', padding: '52px 16px 32px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div>
-                <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 17, color: 'var(--cardinal)' }}>{selectedHotel.hotel_name}</div>
-                <div className="mono" style={{ fontSize: 12, color: 'var(--warm-500)' }}>{selectedHotel.city}, {selectedHotel.country}</div>
+      {selectedHotel && (() => {
+        const hotelGuests = guestMap[selectedHotel.id] ?? []
+        const guestCount = hotelGuests.length
+        const booker = travelers.find(t => t.id === selectedHotel.booked_by)
+        return (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex' }} onClick={() => setSelectedHotel(null)}>
+            <div style={{ flex: 1 }} />
+            <div onClick={e => e.stopPropagation()} style={{ width: '88vw', maxWidth: 380, background: 'var(--cream)', boxShadow: '-4px 0 24px rgba(0,0,0,0.2)', height: '100%', overflowY: 'auto', padding: '52px 16px 32px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <div>
+                  <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 17, color: 'var(--cardinal)' }}>{selectedHotel.hotel_name}</div>
+                  <div className="mono" style={{ fontSize: 12, color: 'var(--warm-500)' }}>{selectedHotel.city}{selectedHotel.country ? ', ' + selectedHotel.country : ''}</div>
+                </div>
+                <button onClick={() => setSelectedHotel(null)} style={{ background: 'none', border: 'none', fontSize: 24, color: 'var(--warm-500)' }}><i className="ti ti-x" /></button>
               </div>
-              <button onClick={() => setSelectedHotel(null)} style={{ background: 'none', border: 'none', fontSize: 24, color: 'var(--warm-500)' }}><i className="ti ti-x" /></button>
-            </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
-              <div>
-                <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Check-in</div>
-                <div className="mono" style={{ fontSize: 13 }}>{selectedHotel.check_in}</div>
-                {selectedHotel.check_in_time && <div className="mono" style={{ fontSize: 12, color: 'var(--warm-500)' }}>{selectedHotel.check_in_time}</div>}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+                <div>
+                  <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Check-in</div>
+                  <div className="mono" style={{ fontSize: 13 }}>{selectedHotel.check_in}</div>
+                  {selectedHotel.check_in_time && <div className="mono" style={{ fontSize: 12, color: 'var(--warm-500)' }}>{selectedHotel.check_in_time}</div>}
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Check-out</div>
+                  <div className="mono" style={{ fontSize: 13 }}>{selectedHotel.check_out}</div>
+                  {selectedHotel.check_out_time && <div className="mono" style={{ fontSize: 12, color: 'var(--warm-500)' }}>{selectedHotel.check_out_time}</div>}
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Total</div>
+                  <div className="mono fw6" style={{ fontSize: 15, color: 'var(--green)' }}>{fmtUSD(selectedHotel.total_cost_usd)}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Per person</div>
+                  <div className="mono fw6" style={{ fontSize: 15, color: 'var(--green)' }}>{fmtUSD(guestCount > 0 ? selectedHotel.total_cost_usd / guestCount : 0)}</div>
+                </div>
               </div>
-              <div>
-                <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Check-out</div>
-                <div className="mono" style={{ fontSize: 13 }}>{selectedHotel.check_out}</div>
-                {selectedHotel.check_out_time && <div className="mono" style={{ fontSize: 12, color: 'var(--warm-500)' }}>{selectedHotel.check_out_time}</div>}
-              </div>
-              <div>
-                <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Total cost</div>
-                <div className="mono fw6" style={{ fontSize: 14, color: 'var(--green)' }}>{fmtUSD(selectedHotel.total_cost_usd)}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Per person</div>
-                <div className="mono fw6" style={{ fontSize: 14, color: 'var(--green)' }}>{fmtUSD(selectedHotel.hotel_guests?.length > 0 ? selectedHotel.total_cost_usd / selectedHotel.hotel_guests.length : 0)}</div>
-              </div>
-            </div>
 
-            {selectedHotel.address && (
-              <div style={{ marginBottom: 10 }}>
-                <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 2 }}>Address</div>
-                <div className="mono" style={{ fontSize: 13 }}>{selectedHotel.address}</div>
-              </div>
-            )}
-            {selectedHotel.phone && (
-              <div style={{ marginBottom: 10 }}>
-                <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 2 }}>Phone</div>
-                <a href={'tel:' + selectedHotel.phone} className="mono" style={{ fontSize: 13, color: 'var(--cardinal)', textDecoration: 'none' }}>{selectedHotel.phone}</a>
-              </div>
-            )}
-            {selectedHotel.confirmation_number && (
-              <div style={{ marginBottom: 10 }}>
-                <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 2 }}>Confirmation #</div>
-                <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: 'var(--cardinal)' }}>{selectedHotel.confirmation_number}</div>
-              </div>
-            )}
+              <DetailRow label="Address" value={selectedHotel.address} />
+              <DetailRow label="Phone" value={selectedHotel.phone} link={'tel:' + selectedHotel.phone} />
+              <DetailRow label="Confirmation #" value={selectedHotel.confirmation_number} />
+              <DetailRow label="Booked by" value={booker?.name} />
+              <DetailRow label="Notes" value={selectedHotel.notes} />
 
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 4 }}>Booked by</div>
-              <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 13, fontWeight: 700 }}>{travelers.find(t => t.id === selectedHotel.booked_by)?.name ?? '?'}</div>
-            </div>
-
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>Guests staying</div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {selectedHotel.hotel_guests?.map(g => {
-                  const gc = TRAVELER_COLORS[g.travelers?.name] ?? { bg: '#FFE8E8', text: '#990000' }
-                  return (
-                    <div key={g.traveler_id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid var(--warm-200)', borderRadius: 99, padding: '4px 10px 4px 4px' }}>
-                      <div className="avatar avatar-sm" style={{ background: gc.bg, color: gc.text }}>{initials(g.travelers?.name)}</div>
-                      <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 12, fontWeight: 700 }}>{g.travelers?.name?.split(' ')[0]}</span>
-                    </div>
-                  )
-                })}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>Guests staying</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {hotelGuests.map(t => {
+                    const gc = TRAVELER_COLORS[t.name] ?? { bg: '#FFE8E8', text: '#990000' }
+                    return (
+                      <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid var(--warm-200)', borderRadius: 99, padding: '4px 10px 4px 4px' }}>
+                        <div className="avatar avatar-sm" style={{ background: gc.bg, color: gc.text }}>{initials(t.name)}</div>
+                        <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 12, fontWeight: 700 }}>{t.name.split(' ')[0]}</span>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
 
-            {selectedHotel.notes && (
-              <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 2 }}>Notes</div>
-                <div className="mono" style={{ fontSize: 12, color: 'var(--warm-500)' }}>{selectedHotel.notes}</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="add-btn" style={{ flex: 1 }} onClick={() => openEdit(selectedHotel)}>
+                  <i className="ti ti-edit" /> Edit
+                </button>
+                <button onClick={() => deleteHotel(selectedHotel.id)} style={{ padding: '14px 16px', background: 'var(--red-light)', color: 'var(--red-err)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontWeight: 700 }}>
+                  <i className="ti ti-trash" />
+                </button>
               </div>
-            )}
-
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="add-btn" style={{ flex: 1 }} onClick={() => openEdit(selectedHotel)}><i className="ti ti-edit" /> Edit</button>
-              <button onClick={() => deleteHotel(selectedHotel.id)} style={{ padding: '14px 16px', background: 'var(--red-light)', color: 'var(--red-err)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontWeight: 700 }}><i className="ti ti-trash" /></button>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {showForm && (
         <div className="sheet-overlay" onClick={e => e.target === e.currentTarget && setShowForm(false)}>
           <div className="sheet">
             <div className="sheet-handle" />
             <div className="sheet-title">{editHotel ? 'Edit hotel' : 'Add hotel'}</div>
-
             <div className="form-field">
               <label className="form-label">Hotel name</label>
               <input className="form-input" placeholder="Hotel Artemide" value={form.hotel_name} onChange={set('hotel_name')} />
@@ -262,7 +309,6 @@ export default function HotelsPage({ currentUser, travelers }) {
                 </select>
               </div>
             </div>
-
             <div style={{ background: 'var(--warm-100)', borderRadius: 10, padding: 10, marginBottom: 12 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--warm-500)', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>Guests staying</div>
               <div className="traveler-grid">
@@ -278,7 +324,6 @@ export default function HotelsPage({ currentUser, travelers }) {
                 </div>
               )}
             </div>
-
             <div className="form-field">
               <label className="form-label">Notes</label>
               <input className="form-input" placeholder="Breakfast included, parking, WiFi..." value={form.notes} onChange={set('notes')} />
