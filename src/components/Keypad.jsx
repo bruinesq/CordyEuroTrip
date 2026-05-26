@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { CURRENCIES, CURRENCY_SYMBOLS, CATEGORY_ICONS, CATEGORY_COLORS, getExchangeRate } from '../lib/supabase'
 
 const CATEGORIES = ['Hotel','Meals','Transport','Activities','Shopping','Drinks','Groceries','Other']
@@ -13,14 +13,15 @@ export default function Keypad({ onSave, onClose, travelers, currentUser, defaul
   const [participants, setParticipants] = useState(travelers.map(t => t.id))
   const [loading, setLoading] = useState(false)
   const [rate, setRate] = useState(1)
+  const descRef = useRef(null)
 
   useEffect(() => {
-    if (currency !== 'USD') {
-      getExchangeRate(currency, 'USD').then(setRate)
-    } else {
-      setRate(1)
-    }
+    if (currency !== 'USD') { getExchangeRate(currency, 'USD').then(setRate) } else { setRate(1) }
   }, [currency])
+
+  useEffect(() => {
+    setTimeout(() => descRef.current?.focus(), 300)
+  }, [])
 
   const amount = parseInt(raw || '0') / 100
   const amountUSD = parseFloat((amount * rate).toFixed(2))
@@ -33,9 +34,7 @@ export default function Keypad({ onSave, onClose, travelers, currentUser, defaul
   }
 
   function toggleParticipant(id) {
-    setParticipants(p =>
-      p.includes(id) ? p.filter(x => x !== id) : [...p, id]
-    )
+    setParticipants(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
   }
 
   async function handleSave() {
@@ -62,54 +61,40 @@ export default function Keypad({ onSave, onClose, travelers, currentUser, defaul
         <div className="sheet-handle" />
 
         <div className="kp-display">
-          <div style={{ fontSize: 12, color: 'var(--warm-500)', marginBottom: 4, fontFamily: 'Syne, sans-serif', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em' }}>Amount</div>
+          <div style={{ fontSize: 11, color: 'var(--warm-500)', marginBottom: 4, fontFamily: 'Syne, sans-serif', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em' }}>Amount</div>
           <div className="kp-amount">{sym}{amount.toFixed(2)}</div>
-          {currency !== 'USD' && (
-            <div className="kp-rate">≈ ${amountUSD.toFixed(2)} USD</div>
-          )}
+          {currency !== 'USD' && <div className="kp-rate">approx. ${amountUSD.toFixed(2)} USD</div>}
         </div>
 
         <div className="kp-currency-row">
           {CURRENCIES.map(c => (
-            <button
-              key={c}
-              className={`cur-btn ${currency === c ? 'active' : ''}`}
-              onClick={() => setCurrency(c)}
-            >{c}</button>
+            <button key={c} className={`cur-btn ${currency === c ? 'active' : ''}`} onClick={() => setCurrency(c)}>{c}</button>
           ))}
         </div>
 
         <div className="form-field">
           <label className="form-label">Description</label>
           <input
+            ref={descRef}
             className="form-input"
             placeholder="e.g. Dinner at Da Enzo"
             value={description}
             onChange={e => setDescription(e.target.value)}
+            autoFocus
+            enterKeyHint="done"
           />
         </div>
 
         <div className="form-field">
           <label className="form-label">Date</label>
-          <input
-            className="form-input mono"
-            type="date"
-            value={date}
-            onChange={e => setDate(e.target.value)}
-          />
+          <input className="form-input mono" type="date" value={date} onChange={e => setDate(e.target.value)} />
         </div>
 
         <div className="type-row">
-          <button
-            className={`type-btn ${type === 'pe' ? 'active-pe' : ''}`}
-            onClick={() => setType('pe')}
-          >
+          <button className={`type-btn ${type === 'pe' ? 'active-pe' : ''}`} onClick={() => setType('pe')}>
             <i className="ti ti-lock" /> Personal
           </button>
-          <button
-            className={`type-btn ${type === 'ge' ? 'active-ge' : ''}`}
-            onClick={() => setType('ge')}
-          >
+          <button className={`type-btn ${type === 'ge' ? 'active-ge' : ''}`} onClick={() => setType('ge')}>
             <i className="ti ti-users" /> Group
           </button>
         </div>
@@ -119,11 +104,9 @@ export default function Keypad({ onSave, onClose, travelers, currentUser, defaul
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--warm-500)', marginBottom: 8, fontFamily: 'Syne, sans-serif', textTransform: 'uppercase', letterSpacing: '.05em' }}>Split with</div>
             <div className="traveler-grid">
               {travelers.map(t => (
-                <button
-                  key={t.id}
-                  className={`tv-btn ${participants.includes(t.id) ? 'selected' : ''}`}
-                  onClick={() => toggleParticipant(t.id)}
-                >{t.name.split(' ')[0]}</button>
+                <button key={t.id} className={`tv-btn ${participants.includes(t.id) ? 'selected' : ''}`} onClick={() => toggleParticipant(t.id)}>
+                  {t.name.split(' ')[0]}
+                </button>
               ))}
             </div>
             {participants.length > 0 && amount > 0 && (
@@ -140,11 +123,7 @@ export default function Keypad({ onSave, onClose, travelers, currentUser, defaul
             {CATEGORIES.map(cat => {
               const cc = CATEGORY_COLORS[cat] ?? { bg: '#F7F0E8', icon: '#8A7560' }
               return (
-                <button
-                  key={cat}
-                  className={`cat-btn ${category === cat ? 'selected' : ''}`}
-                  onClick={() => setCategory(cat)}
-                >
+                <button key={cat} className={`cat-btn ${category === cat ? 'selected' : ''}`} onClick={() => setCategory(cat)}>
                   <i className={`ti ${CATEGORY_ICONS[cat]}`} style={{ color: category === cat ? 'var(--cardinal)' : cc.icon }} />
                   {cat}
                 </button>
@@ -158,17 +137,11 @@ export default function Keypad({ onSave, onClose, travelers, currentUser, defaul
             <button key={n} className="kp-key" onClick={() => kd(String(n))}>{n}</button>
           ))}
           <button className="kp-key wide" onClick={() => kd('0')}>0</button>
-          <button className="kp-key del" onClick={() => kd('del')}>
-            <i className="ti ti-backspace" />
-          </button>
+          <button className="kp-key del" onClick={() => kd('del')}><i className="ti ti-backspace" /></button>
         </div>
 
-        <button
-          className="kp-submit"
-          onClick={handleSave}
-          disabled={loading || !amount || !description.trim()}
-        >
-          {loading ? 'Saving…' : 'Save expense'}
+        <button className="kp-submit" onClick={handleSave} disabled={loading || !amount || !description.trim()}>
+          {loading ? 'Saving...' : 'Log Expense'}
         </button>
       </div>
     </div>
