@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { supabase, TRAVELER_COLORS, fmtUSD, CATEGORY_ICONS, CATEGORY_COLORS } from '../lib/supabase'
+import { supabase, fmtUSD, CATEGORY_ICONS, CATEGORY_COLORS, TRAVELER_COLORS } from '../lib/supabase'
 import Keypad from '../components/Keypad'
 
-export default function GroupExpensesPage({ currentUser, travelers }) {
+export default function GroupExpensesPage({ currentUser, travelers, defaultType = 'ge' }) {
   const [expenses, setExpenses] = useState([])
   const [loading, setLoading] = useState(true)
   const [showKeypad, setShowKeypad] = useState(false)
@@ -25,22 +25,35 @@ export default function GroupExpensesPage({ currentUser, travelers }) {
   }
 
   async function handleSave(entry) {
-    const { data: exp } = await supabase.from('group_expenses').insert({
-      paid_by: currentUser.id,
-      description: entry.description,
-      original_amount: entry.original_amount,
-      original_currency: entry.original_currency,
-      amount_usd: entry.amount_usd,
-      exchange_rate: entry.exchange_rate,
-      expense_date: entry.expense_date,
-      category_id: await getCategoryId(entry.category),
-    }).select().single()
-
-    if (exp && entry.participants.length) {
-      const share = parseFloat((entry.amount_usd / entry.participants.length).toFixed(2))
-      await supabase.from('group_expense_participants').insert(
-        entry.participants.map(tid => ({ expense_id: exp.id, traveler_id: tid, share_usd: share }))
-      )
+    const catId = await getCategoryId(entry.category)
+    if (entry.type === 'pe') {
+      await supabase.from('personal_expenses').insert({
+        traveler_id: currentUser.id,
+        description: entry.description,
+        original_amount: entry.original_amount,
+        original_currency: entry.original_currency,
+        amount_usd: entry.amount_usd,
+        exchange_rate: entry.exchange_rate,
+        expense_date: entry.expense_date,
+        category_id: catId,
+      })
+    } else {
+      const { data: exp } = await supabase.from('group_expenses').insert({
+        paid_by: currentUser.id,
+        description: entry.description,
+        original_amount: entry.original_amount,
+        original_currency: entry.original_currency,
+        amount_usd: entry.amount_usd,
+        exchange_rate: entry.exchange_rate,
+        expense_date: entry.expense_date,
+        category_id: catId,
+      }).select().single()
+      if (exp && entry.participants.length) {
+        const share = parseFloat((entry.amount_usd / entry.participants.length).toFixed(2))
+        await supabase.from('group_expense_participants').insert(
+          entry.participants.map(tid => ({ expense_id: exp.id, traveler_id: tid, share_usd: share }))
+        )
+      }
     }
     await load()
   }
@@ -67,8 +80,12 @@ export default function GroupExpensesPage({ currentUser, travelers }) {
         <div className="metric"><div className="metric-label">Net</div><div className="metric-value" style={{ color: iPaid - myShare >= 0 ? 'var(--green)' : 'var(--red-err)' }}>{fmtUSD(iPaid - myShare)}</div></div>
       </div>
 
-      <div className="section-label">Group expenses</div>
-      {loading ? <div className="loading">Loading…</div> : expenses.length === 0 ? (
+      <button className="add-btn" onClick={() => setShowKeypad(true)} style={{ marginBottom: 16 }}>
+        <i className="ti ti-plus" /> Log Expense
+      </button>
+
+      <div className="section-label">Group expense history</div>
+      {loading ? <div className="loading">Loading...</div> : expenses.length === 0 ? (
         <div className="empty"><i className="ti ti-receipt" /><p>No group expenses yet</p></div>
       ) : (
         <div className="card">
@@ -78,7 +95,7 @@ export default function GroupExpensesPage({ currentUser, travelers }) {
             const cc = CATEGORY_COLORS[catName] ?? { bg: '#F7F0E8', icon: '#8A7560' }
             const icon = CATEGORY_ICONS[catName] ?? 'ti-dots'
             const count = e.group_expense_participants?.length ?? 0
-            const share = count > 0 ? (e.amount_usd / count).toFixed(2) : '—'
+            const share = count > 0 ? (e.amount_usd / count).toFixed(2) : '?'
             return (
               <div key={e.id} className="row">
                 <div className="row-left">
@@ -105,17 +122,13 @@ export default function GroupExpensesPage({ currentUser, travelers }) {
         </div>
       )}
 
-      <button className="add-btn" onClick={() => setShowKeypad(true)}>
-        <i className="ti ti-plus" /> Log group expense
-      </button>
-
       {showKeypad && (
         <Keypad
           onSave={handleSave}
           onClose={() => setShowKeypad(false)}
           travelers={travelers}
           currentUser={currentUser}
-          defaultType="ge"
+          defaultType={defaultType}
         />
       )}
     </>
