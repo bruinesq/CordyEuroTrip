@@ -446,3 +446,64 @@ input, select, textarea {
 .mono  { font-family: 'IBM Plex Mono', monospace; }
 .syne  { font-family: 'Syne', sans-serif; }
 .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* iPhone safe area fixes */
+.content-scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 12px;
+  padding-bottom: calc(80px + var(--safe-bottom));
+}
+
+.sheet {
+  background: var(--cream);
+  border-radius: 22px 22px 0 0;
+  padding: 16px 16px calc(32px + var(--safe-bottom));
+  max-height: 92vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.slide-panel {
+  width: 88vw;
+  max-width: 380px;
+  background: var(--cream);
+  box-shadow: -4px 0 24px rgba(0,0,0,0.2);
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 52px 16px calc(40px + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+}
+
+.slide-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-shrink: 0;
+}
+
+.slide-panel-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--warm-200);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: var(--warm-800);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.panel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  background: rgba(61,46,30,0.35);
+}
