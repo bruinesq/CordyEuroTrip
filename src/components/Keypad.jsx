@@ -20,7 +20,7 @@ export default function Keypad({ onSave, onClose, travelers, currentUser, defaul
   }, [currency])
 
   useEffect(() => {
-    setTimeout(() => descRef.current?.focus(), 300)
+    setTimeout(() => descRef.current?.focus(), 400)
   }, [])
 
   const amount = parseInt(raw || '0') / 100
@@ -41,8 +41,7 @@ export default function Keypad({ onSave, onClose, travelers, currentUser, defaul
     if (!amount || !description.trim()) return
     setLoading(true)
     await onSave({
-      type,
-      category,
+      type, category,
       description: description.trim(),
       original_amount: amount,
       original_currency: currency,
@@ -56,9 +55,14 @@ export default function Keypad({ onSave, onClose, travelers, currentUser, defaul
   }
 
   return (
-    <div className="sheet-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="sheet-overlay">
       <div className="sheet">
         <div className="sheet-handle" />
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 800, color: 'var(--warm-800)' }}>Log Expense</div>
+          <button onClick={onClose} className="slide-panel-close"><i className="ti ti-x" /></button>
+        </div>
 
         <div className="kp-display">
           <div style={{ fontSize: 11, color: 'var(--warm-500)', marginBottom: 4, fontFamily: 'Syne, sans-serif', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em' }}>Amount</div>
@@ -74,15 +78,7 @@ export default function Keypad({ onSave, onClose, travelers, currentUser, defaul
 
         <div className="form-field">
           <label className="form-label">Description</label>
-          <input
-            ref={descRef}
-            className="form-input"
-            placeholder="e.g. Dinner at Da Enzo"
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            autoFocus
-            enterKeyHint="done"
-          />
+          <input ref={descRef} className="form-input" placeholder="e.g. Dinner at Da Enzo" value={description} onChange={e => setDescription(e.target.value)} autoFocus enterKeyHint="done" />
         </div>
 
         <div className="form-field">
@@ -140,9 +136,14 @@ export default function Keypad({ onSave, onClose, travelers, currentUser, defaul
           <button className="kp-key del" onClick={() => kd('del')}><i className="ti ti-backspace" /></button>
         </div>
 
-        <button className="kp-submit" onClick={handleSave} disabled={loading || !amount || !description.trim()}>
-          {loading ? 'Saving...' : 'Log Expense'}
-        </button>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 8, marginTop: 4 }}>
+          <button onClick={onClose} style={{ padding: '14px', background: 'var(--warm-100)', color: 'var(--warm-800)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>
+            Cancel
+          </button>
+          <button className="kp-submit" style={{ margin: 0 }} onClick={handleSave} disabled={loading || !amount || !description.trim()}>
+            {loading ? 'Saving...' : 'Log Expense'}
+          </button>
+        </div>
       </div>
     </div>
   )
