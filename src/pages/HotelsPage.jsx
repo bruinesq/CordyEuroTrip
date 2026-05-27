@@ -9,7 +9,7 @@ export default function HotelsPage({ currentUser, travelers }) {
   const [editHotel, setEditHotel] = useState(null)
   const [selectedHotel, setSelectedHotel] = useState(null)
   const [saving, setSaving] = useState(false)
-  const empty = { hotel_name:'', city:'', country:'', address:'', phone:'', confirmation_number:'', check_in:'', check_in_time:'', check_out:'', check_out_time:'', original_amount:'', original_currency:'USD', notes:'' }
+  const empty = { hotel_name:'', city:'', address:'', phone:'', confirmation_number:'', check_in:'', check_out:'', original_amount:'', original_currency:'USD', notes:'' }
   const [form, setForm] = useState(empty)
   const [guests, setGuests] = useState([])
 
@@ -41,7 +41,18 @@ export default function HotelsPage({ currentUser, travelers }) {
 
   function openEdit(h) {
     setEditHotel(h)
-    setForm({ hotel_name: h.hotel_name ?? '', city: h.city ?? '', country: h.country ?? '', address: h.address ?? '', phone: h.phone ?? '', confirmation_number: h.confirmation_number ?? '', check_in: h.check_in ?? '', check_in_time: h.check_in_time ?? '', check_out: h.check_out ?? '', check_out_time: h.check_out_time ?? '', original_amount: h.original_amount ?? h.total_cost_usd ?? '', original_currency: h.original_currency ?? 'USD', notes: h.notes ?? '' })
+    setForm({
+      hotel_name: h.hotel_name ?? '',
+      city: h.city ?? '',
+      address: h.address ?? '',
+      phone: h.phone ?? '',
+      confirmation_number: h.confirmation_number ?? '',
+      check_in: h.check_in ?? '',
+      check_out: h.check_out ?? '',
+      original_amount: h.original_amount ?? h.total_cost_usd ?? '',
+      original_currency: h.original_currency ?? 'USD',
+      notes: h.notes ?? ''
+    })
     const hGuests = guestMap[h.id] ?? []
     setGuests(hGuests.map(t => t.id))
     setSelectedHotel(null)
@@ -53,7 +64,20 @@ export default function HotelsPage({ currentUser, travelers }) {
     setSaving(true)
     const rate = await getExchangeRate(form.original_currency, 'USD')
     const usd = parseFloat((parseFloat(form.original_amount) * rate).toFixed(2))
-    const payload = { hotel_name: form.hotel_name, city: form.city, country: form.country, address: form.address, phone: form.phone, confirmation_number: form.confirmation_number, check_in: form.check_in, check_in_time: form.check_in_time, check_out: form.check_out, check_out_time: form.check_out_time, original_amount: parseFloat(form.original_amount), original_currency: form.original_currency, total_cost_usd: usd, exchange_rate: rate, notes: form.notes }
+    const payload = {
+      hotel_name: form.hotel_name,
+      city: form.city,
+      address: form.address,
+      phone: form.phone,
+      confirmation_number: form.confirmation_number,
+      check_in: form.check_in,
+      check_out: form.check_out,
+      original_amount: parseFloat(form.original_amount),
+      original_currency: form.original_currency,
+      total_cost_usd: usd,
+      exchange_rate: rate,
+      notes: form.notes
+    }
     let hotelId = editHotel?.id
     if (editHotel) {
       await supabase.from('hotels').update(payload).eq('id', editHotel.id)
@@ -82,7 +106,7 @@ export default function HotelsPage({ currentUser, travelers }) {
   function DetailRow({ label, value, link }) {
     if (!value) return null
     return (
-      <div style={{ marginBottom: 12 }}>
+      <div style={{ marginBottom: 10 }}>
         <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 2 }}>{label}</div>
         {link ? <a href={link} className="mono" style={{ fontSize: 13, color: 'var(--cardinal)', textDecoration: 'none' }}>{value}</a>
                : <div className="mono" style={{ fontSize: 13 }}>{value}</div>}
@@ -106,12 +130,14 @@ export default function HotelsPage({ currentUser, travelers }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 15 }}>{h.hotel_name}</div>
-                <div className="mono" style={{ fontSize: 11, color: 'var(--warm-500)', marginTop: 2 }}>{h.city}{h.country ? ', ' + h.country : ''}</div>
+                <div className="mono" style={{ fontSize: 11, color: 'var(--warm-500)', marginTop: 2 }}>{h.city}</div>
               </div>
               <i className="ti ti-chevron-right" style={{ fontSize: 16, color: 'var(--warm-300)', marginLeft: 8 }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-              <span className="badge mono" style={{ background: isOld ? 'var(--warm-100)' : 'var(--cardinal-light)', color: isOld ? 'var(--warm-300)' : 'var(--cardinal)' }}>{h.check_in} to {h.check_out}</span>
+              <span className="badge mono" style={{ background: isOld ? 'var(--warm-100)' : 'var(--cardinal-light)', color: isOld ? 'var(--warm-300)' : 'var(--cardinal)' }}>
+                {h.check_in} → {h.check_out}
+              </span>
               <span className="mono fw6" style={{ fontSize: 13, color: 'var(--green)' }}>{fmtUSD(h.total_cost_usd)}</span>
             </div>
             <div className="mono" style={{ fontSize: 11, color: 'var(--warm-500)', marginTop: 6 }}>
@@ -140,21 +166,19 @@ export default function HotelsPage({ currentUser, travelers }) {
               <div className="slide-panel-header">
                 <div>
                   <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 17, color: 'var(--cardinal)' }}>{selectedHotel.hotel_name}</div>
-                  <div className="mono" style={{ fontSize: 12, color: 'var(--warm-500)' }}>{selectedHotel.city}{selectedHotel.country ? ', ' + selectedHotel.country : ''}</div>
+                  <div className="mono" style={{ fontSize: 12, color: 'var(--warm-500)' }}>{selectedHotel.city}</div>
                 </div>
                 <button className="slide-panel-close" onClick={() => setSelectedHotel(null)}><i className="ti ti-x" /></button>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
                 <div>
                   <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Check-in</div>
                   <div className="mono" style={{ fontSize: 13 }}>{selectedHotel.check_in}</div>
-                  {selectedHotel.check_in_time && <div className="mono" style={{ fontSize: 12, color: 'var(--warm-500)' }}>{selectedHotel.check_in_time}</div>}
                 </div>
                 <div>
                   <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Check-out</div>
                   <div className="mono" style={{ fontSize: 13 }}>{selectedHotel.check_out}</div>
-                  {selectedHotel.check_out_time && <div className="mono" style={{ fontSize: 12, color: 'var(--warm-500)' }}>{selectedHotel.check_out_time}</div>}
                 </div>
                 <div>
                   <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Total</div>
@@ -172,7 +196,7 @@ export default function HotelsPage({ currentUser, travelers }) {
               <DetailRow label="Booked by" value={booker?.name} />
               <DetailRow label="Notes" value={selectedHotel.notes} />
 
-              <div style={{ marginBottom: 16 }}>
+              <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>Guests staying</div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {hotelGuests.map(t => {
@@ -187,7 +211,7 @@ export default function HotelsPage({ currentUser, travelers }) {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: 8, marginTop: 'auto', paddingTop: 12 }}>
+              <div style={{ display: 'flex', gap: 8 }}>
                 <button className="add-btn" style={{ flex: 1 }} onClick={() => openEdit(selectedHotel)}>
                   <i className="ti ti-edit" /> Edit
                 </button>
@@ -207,28 +231,27 @@ export default function HotelsPage({ currentUser, travelers }) {
         <div className="sheet-overlay" onClick={e => e.target === e.currentTarget && setShowForm(false)}>
           <div className="sheet">
             <div className="sheet-handle" />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div className="sheet-title" style={{ marginBottom: 0 }}>{editHotel ? 'Edit hotel' : 'Add hotel'}</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 800 }}>{editHotel ? 'Edit hotel' : 'Add hotel'}</div>
               <button onClick={() => setShowForm(false)} className="slide-panel-close"><i className="ti ti-x" /></button>
             </div>
-            <div className="form-field">
-              <label className="form-label">Hotel name</label>
-              <input className="form-input" placeholder="Hotel Artemide" value={form.hotel_name} onChange={set('hotel_name')} />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 8, marginBottom: 10 }}>
+              <div className="form-field" style={{ marginBottom: 0 }}>
+                <label className="form-label">Hotel name</label>
+                <input className="form-input" placeholder="Hotel Artemide" value={form.hotel_name} onChange={set('hotel_name')} />
+              </div>
               <div className="form-field" style={{ marginBottom: 0 }}>
                 <label className="form-label">City</label>
                 <input className="form-input" placeholder="Rome" value={form.city} onChange={set('city')} />
               </div>
-              <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">Country</label>
-                <input className="form-input" placeholder="Italy" value={form.country} onChange={set('country')} />
-              </div>
             </div>
+
             <div className="form-field">
               <label className="form-label">Address</label>
               <input className="form-input" placeholder="Via Nazionale 22, Rome" value={form.address} onChange={set('address')} />
             </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
               <div className="form-field" style={{ marginBottom: 0 }}>
                 <label className="form-label">Phone</label>
@@ -239,26 +262,18 @@ export default function HotelsPage({ currentUser, travelers }) {
                 <input className="form-input mono" placeholder="ABC123" value={form.confirmation_number} onChange={set('confirmation_number')} />
               </div>
             </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
               <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">Check-in date</label>
+                <label className="form-label">Check-in</label>
                 <input className="form-input mono" type="date" value={form.check_in} onChange={set('check_in')} />
               </div>
               <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">Check-in time</label>
-                <input className="form-input mono" type="time" value={form.check_in_time} onChange={set('check_in_time')} />
-              </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
-              <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">Check-out date</label>
+                <label className="form-label">Check-out</label>
                 <input className="form-input mono" type="date" value={form.check_out} onChange={set('check_out')} />
               </div>
-              <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">Check-out time</label>
-                <input className="form-input mono" type="time" value={form.check_out_time} onChange={set('check_out_time')} />
-              </div>
             </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8, marginBottom: 10 }}>
               <div className="form-field" style={{ marginBottom: 0 }}>
                 <label className="form-label">Total cost</label>
@@ -271,7 +286,8 @@ export default function HotelsPage({ currentUser, travelers }) {
                 </select>
               </div>
             </div>
-            <div style={{ background: 'var(--warm-100)', borderRadius: 10, padding: 10, marginBottom: 12 }}>
+
+            <div style={{ background: 'var(--warm-100)', borderRadius: 10, padding: 10, marginBottom: 10 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--warm-500)', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>Guests staying</div>
               <div className="traveler-grid">
                 {travelers.map(t => (
@@ -286,11 +302,13 @@ export default function HotelsPage({ currentUser, travelers }) {
                 </div>
               )}
             </div>
+
             <div className="form-field">
               <label className="form-label">Notes</label>
               <input className="form-input" placeholder="Breakfast included, parking, WiFi..." value={form.notes} onChange={set('notes')} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 4 }}>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <button onClick={() => setShowForm(false)} style={{ padding: '14px', background: 'var(--warm-100)', color: 'var(--warm-800)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>
                 Cancel
               </button>
