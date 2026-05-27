@@ -62,8 +62,8 @@ export default function HotelsPage({ currentUser, travelers }) {
   async function save() {
     if (!form.hotel_name || !form.check_in || !form.check_out || !form.original_amount) return
     setSaving(true)
-    const rate = await getExchangeRate(form.original_currency, 'USD')
-    const usd = parseFloat((parseFloat(form.original_amount) * rate).toFixed(2))
+    const rateInfo = await getExchangeRate(form.original_currency, 'USD')
+    const usd = parseFloat((parseFloat(form.original_amount) * rateInfo.rate).toFixed(2))
     const payload = {
       hotel_name: form.hotel_name,
       city: form.city,
@@ -75,7 +75,7 @@ export default function HotelsPage({ currentUser, travelers }) {
       original_amount: parseFloat(form.original_amount),
       original_currency: form.original_currency,
       total_cost_usd: usd,
-      exchange_rate: rate,
+      exchange_rate: rateInfo.rate,
       notes: form.notes
     }
     let hotelId = editHotel?.id
@@ -108,8 +108,9 @@ export default function HotelsPage({ currentUser, travelers }) {
     return (
       <div style={{ marginBottom: 10 }}>
         <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 2 }}>{label}</div>
-        {link ? <a href={link} className="mono" style={{ fontSize: 13, color: 'var(--cardinal)', textDecoration: 'none' }}>{value}</a>
-               : <div className="mono" style={{ fontSize: 13 }}>{value}</div>}
+        {link
+          ? <a href={link} className="mono" style={{ fontSize: 13, color: 'var(--cardinal)', textDecoration: 'none' }}>{value}</a>
+          : <div className="mono" style={{ fontSize: 13 }}>{value}</div>}
       </div>
     )
   }
@@ -136,7 +137,7 @@ export default function HotelsPage({ currentUser, travelers }) {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
               <span className="badge mono" style={{ background: isOld ? 'var(--warm-100)' : 'var(--cardinal-light)', color: isOld ? 'var(--warm-300)' : 'var(--cardinal)' }}>
-                {h.check_in} → {h.check_out}
+                {h.check_in} to {h.check_out}
               </span>
               <span className="mono fw6" style={{ fontSize: 13, color: 'var(--green)' }}>{fmtUSD(h.total_cost_usd)}</span>
             </div>
@@ -228,10 +229,9 @@ export default function HotelsPage({ currentUser, travelers }) {
       })()}
 
       {showForm && (
-        {showForm && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'rgba(61,46,30,0.45)' }} onClick={e => e.target === e.currentTarget && setShowForm(false)}>
           <div style={{ background: 'var(--cream)', borderRadius: '22px 22px 0 0', padding: '16px 16px', paddingBottom: 'calc(90px + env(safe-area-inset-bottom, 16px))', maxHeight: '92vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
-            <div className="sheet-handle" />
+            <div style={{ width: 38, height: 4, background: 'var(--warm-200)', borderRadius: 2, margin: '0 auto 14px' }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 800 }}>{editHotel ? 'Edit hotel' : 'Add hotel'}</div>
               <button onClick={() => setShowForm(false)} className="slide-panel-close"><i className="ti ti-x" /></button>
