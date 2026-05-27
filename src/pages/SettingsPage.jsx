@@ -152,3 +152,105 @@ export default function SettingsPage({ currentUser, travelers, tripName, onTripN
           </div>
         </div>
       )}
+{pendingAction === 'rename_trip' && !showMasterPin && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(61,46,30,0.5)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }} onClick={e => e.target === e.currentTarget && setPendingAction(null)}>
+          <div style={{ background: 'var(--cream)', borderRadius: '22px 22px 0 0', padding: '20px 18px', paddingBottom: 'calc(40px + env(safe-area-inset-bottom,16px))' }}>
+            <div style={{ width: 38, height: 4, background: 'var(--warm-200)', borderRadius: 2, margin: '0 auto 16px' }} />
+            <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Rename trip</div>
+            <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 12, color: 'var(--warm-500)', marginBottom: 14 }}>This updates the trip name shown on all devices instantly.</div>
+            <div className="form-field">
+              <label className="form-label">Trip name</label>
+              <input className="form-input" value={newTripName} onChange={e => setNewTripName(e.target.value)} placeholder="EuroTrip 2026" autoFocus />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+              <button onClick={() => setPendingAction(null)} style={{ padding: '14px', background: 'var(--warm-100)', color: 'var(--warm-800)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>Cancel</button>
+              <button className="kp-submit" style={{ margin: 0 }} onClick={saveTripName}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingAction === 'rename_user' && !showMasterPin && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(61,46,30,0.5)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+          <div style={{ background: 'var(--cream)', borderRadius: '22px 22px 0 0', padding: '20px 18px', paddingBottom: 'calc(40px + env(safe-area-inset-bottom,16px))' }}>
+            <div style={{ width: 38, height: 4, background: 'var(--warm-200)', borderRadius: 2, margin: '0 auto 16px' }} />
+            <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Rename traveler</div>
+            <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 12, color: 'var(--warm-500)', marginBottom: 14 }}>
+              {!editingUser ? 'Select the traveler to rename.' : 'Enter the new full name.'}
+            </div>
+            {!editingUser ? (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+                  {travelers.map(t => {
+                    const th = userTheme(t.name)
+                    return (
+                      <button key={t.id} onClick={() => { setEditingUser(t); setNewUserName(t.name) }} style={{ padding: '12px 10px', background: th.bg, border: 'none', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                        <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800, color: th.text, flexShrink: 0 }}>{initials(t.name)}</div>
+                        <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 12, fontWeight: 700, color: th.text }}>{t.name.split(' ')[0]}</div>
+                      </button>
+                    )
+                  })}
+                </div>
+                <button onClick={() => setPendingAction(null)} style={{ width: '100%', padding: '12px', background: 'none', border: 'none', fontFamily: 'Syne, sans-serif', fontSize: 13, color: 'var(--warm-500)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+              </>
+            ) : (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, padding: '10px 12px', background: userTheme(editingUser.name).bg, borderRadius: 10 }}>
+                  <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 20, fontWeight: 800, color: userTheme(editingUser.name).text }}>{initials(editingUser.name)}</div>
+                  <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 13, fontWeight: 700, color: userTheme(editingUser.name).text }}>Renaming: {editingUser.name}</div>
+                </div>
+                <div className="form-field">
+                  <label className="form-label">New full name</label>
+                  <input className="form-input" value={newUserName} onChange={e => setNewUserName(e.target.value)} placeholder="First Last" autoFocus />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+                  <button onClick={() => setEditingUser(null)} style={{ padding: '14px', background: 'var(--warm-100)', color: 'var(--warm-800)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>Back</button>
+                  <button className="kp-submit" style={{ margin: 0 }} onClick={saveUserName} disabled={saving}>{saving ? 'Saving...' : 'Save name'}</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showClearConfirm && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(61,46,30,0.5)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+          <div style={{ background: 'var(--cream)', borderRadius: '22px 22px 0 0', padding: '24px 18px', paddingBottom: 'calc(40px + env(safe-area-inset-bottom,16px))' }}>
+            {clearStep === 1 && (
+              <>
+                <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                  <div style={{ fontSize: 44, marginBottom: 10 }}>⚠️</div>
+                  <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--red-err)', marginBottom: 10 }}>Clear all my data?</div>
+                  <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 13, color: 'var(--warm-800)', lineHeight: 1.6 }}>
+                    Your flights, hotels, expenses and all entries will be placed on <strong>death row with no appellate review</strong>. No stay of execution. No cert petition. No Hail Mary. They will be gone. Forever.
+                  </div>
+                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'var(--warm-400)', marginTop: 10 }}>Even Cochran can't save them now.</div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <button onClick={() => setShowClearConfirm(false)} style={{ padding: '14px', background: 'var(--warm-100)', color: 'var(--warm-800)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>Spare them</button>
+                  <button onClick={() => setClearStep(2)} style={{ padding: '14px', background: 'var(--red-err)', color: '#fff', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>Execute</button>
+                </div>
+              </>
+            )}
+            {clearStep === 2 && (
+              <>
+                <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                  <div style={{ fontSize: 44, marginBottom: 10 }}>🪦</div>
+                  <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--red-err)', marginBottom: 10 }}>Last chance, counselor.</div>
+                  <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 13, color: 'var(--warm-800)', lineHeight: 1.6 }}>
+                    The court has reviewed your motion. The verdict is final. All data entered by <strong>{currentUser?.name?.split(' ')[0]}</strong> will be permanently deleted. Not reversible. Not appealable. Not forgivable.
+                  </div>
+                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'var(--red-err)', marginTop: 10, fontWeight: 600 }}>Objection overruled. Proceed?</div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <button onClick={() => { setShowClearConfirm(false); setClearStep(1) }} style={{ padding: '14px', background: '#E3F5EC', color: 'var(--green)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>Grant clemency</button>
+                  <button onClick={clearMyData} disabled={clearing} style={{ padding: '14px', background: 'var(--red-err)', color: '#fff', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>{clearing ? 'Deleting...' : 'DELETE ALL'}</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
