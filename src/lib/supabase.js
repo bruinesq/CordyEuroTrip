@@ -12,15 +12,16 @@ export const CURRENCY_SYMBOLS = {
   EUR: '€',
 }
 
+// High-contrast, sharply distinguishable palette — 8 unique themes
 export const TRAVELER_COLORS = {
-  'Ava Dimond':          { bg: '#FFE8E8', text: '#990000' },
-  'Camille Shaw':        { bg: '#FFF8D6', text: '#B8920A' },
-  'Christina Toldalagi': { bg: '#FDEDF2', text: '#C2476D' },
-  'Cordy Nguyen':        { bg: '#EAF0FF', text: '#3B52CC' },
-  "Dillon O'Shea":      { bg: '#F0E8FF', text: '#7B3CC3' },
-  'Dylan Mansourian':    { bg: '#E8F5EA', text: '#1B7A4A' },
-  'Melia Harlan':        { bg: '#FFF0E8', text: '#C45E1A' },
-  'Regan Ramsey':        { bg: '#FDF6EC', text: '#9A6C1A' },
+  'Ava Dimond':          { bg: '#990000', text: '#FFFFFF', light: '#FFE8E8', lightText: '#990000' },
+  'Camille Shaw':        { bg: '#1A5C2A', text: '#FFFFFF', light: '#E3F5E8', lightText: '#1A5C2A' },
+  'Christina Toldalagi': { bg: '#1A3A7C', text: '#FFFFFF', light: '#E6EDFB', lightText: '#1A3A7C' },
+  'Cordy Nguyen':        { bg: '#7B2D8B', text: '#FFFFFF', light: '#F5E6FA', lightText: '#7B2D8B' },
+  "Dillon O'Shea":      { bg: '#C45E1A', text: '#FFFFFF', light: '#FDF0E6', lightText: '#C45E1A' },
+  'Dylan Mansourian':    { bg: '#0D6B7A', text: '#FFFFFF', light: '#E3F5F8', lightText: '#0D6B7A' },
+  'Melia Harlan':        { bg: '#8B1A4A', text: '#FFFFFF', light: '#FAE6EF', lightText: '#8B1A4A' },
+  'Regan Ramsey':        { bg: '#3D3D00', text: '#FFFFFF', light: '#F8F8E3', lightText: '#3D3D00' },
 }
 
 export const CATEGORY_ICONS = {
@@ -45,13 +46,8 @@ export const CATEGORY_COLORS = {
   Other:      { bg: '#F7F0E8', icon: '#8A7560' },
 }
 
-// Returns { rate, source } where rate is how many `to` units per 1 `from`
-// e.g. getExchangeRate('EUR','USD') => { rate: 1.09, source: 'frankfurter' }
-// meaning 1 EUR = 1.09 USD
 export async function getExchangeRate(from, to = 'USD') {
   if (from === to) return { rate: 1, source: 'same currency' }
-
-  // Primary: frankfurter.app
   try {
     const res = await fetch(
       `https://api.frankfurter.app/latest?from=${from}&to=${to}`,
@@ -68,33 +64,9 @@ export async function getExchangeRate(from, to = 'USD') {
   } catch (e) {
     console.warn('[FX] frankfurter failed:', e.message)
   }
-
-  // Fallback: exchangerate.host
-  try {
-    const res = await fetch(
-      `https://api.exchangerate.host/convert?from=${from}&to=${to}&amount=1`,
-      { signal: AbortSignal.timeout(5000) }
-    )
-    if (res.ok) {
-      const data = await res.json()
-      const rate = data.result
-      if (rate && rate > 0) {
-        console.log(`[FX] exchangerate.host: 1 ${from} = ${rate} ${to}`)
-        return { rate, source: 'exchangerate.host' }
-      }
-    }
-  } catch (e) {
-    console.warn('[FX] exchangerate.host failed:', e.message)
-  }
-
-  // Hard fallback: approximate rate (updated May 2026)
-  const FALLBACK_RATES = {
-    'EUR_USD': 1.09,
-    'USD_EUR': 0.917,
-  }
-  const key = `${from}_${to}`
-  const rate = FALLBACK_RATES[key] ?? 1
-  console.warn(`[FX] Using hardcoded fallback: 1 ${from} = ${rate} ${to}`)
+  const FALLBACK = { 'EUR_USD': 1.09, 'USD_EUR': 0.917 }
+  const rate = FALLBACK[`${from}_${to}`] ?? 1
+  console.warn(`[FX] fallback: 1 ${from} = ${rate} ${to}`)
   return { rate, source: 'fallback (offline)' }
 }
 
@@ -106,4 +78,8 @@ export function initials(name) {
   if (!name) return '??'
   const parts = name.trim().split(' ')
   return (parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase()
+}
+
+export function userTheme(name) {
+  return TRAVELER_COLORS[name] ?? { bg: '#444441', text: '#FFFFFF', light: '#F1EFE8', lightText: '#444441' }
 }
