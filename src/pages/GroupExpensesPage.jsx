@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
-import { supabase, fmtUSD, CATEGORY_ICONS, CATEGORY_COLORS, TRAVELER_COLORS, initials } from '../lib/supabase'
+import { supabase, fmtUSD, CATEGORY_ICONS, CATEGORY_COLORS, TRAVELER_COLORS, initials, CURRENCIES, getExchangeRate } from '../lib/supabase'
 import Keypad from '../components/Keypad'
+
+const CATEGORIES = ['Hotel','Meals','Transport','Activities','Shopping','Drinks','Groceries','Other']
 
 export default function GroupExpensesPage({ currentUser, travelers, defaultType = 'ge' }) {
   const [expenses, setExpenses] = useState([])
@@ -9,33 +11,24 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
   const [loading, setLoading] = useState(true)
   const [showKeypad, setShowKeypad] = useState(false)
   const [sortBy, setSortBy] = useState('date')
+  const [editEntry, setEditEntry] = useState(null)
+  const [editForm, setEditForm] = useState({})
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => { load() }, [])
 
   async function load() {
     setLoading(true)
-    const { data: expData } = await supabase
-      .from('group_expenses')
-      .select('*')
-      .order('expense_date', { ascending: false })
-
-    const { data: partData } = await supabase
-      .from('group_expense_participants')
-      .select('expense_id, traveler_id, share_usd')
-
-    const { data: catData } = await supabase
-      .from('categories')
-      .select('id, name')
-
+    const { data: expData } = await supabase.from('group_expenses').select('*').order('expense_date', { ascending: false })
+    const { data: partData } = await supabase.from('group_expense_participants').select('expense_id, traveler_id, share_usd')
+    const { data: catData } = await supabase.from('categories').select('id, name')
     const catMap = {}
     for (const c of catData ?? []) catMap[c.id] = c.name
-
     const partMap = {}
     for (const p of partData ?? []) {
       if (!partMap[p.expense_id]) partMap[p.expense_id] = []
       partMap[p.expense_id].push(p)
     }
-
     setExpenses(expData ?? [])
     setParticipants(partMap)
     setCategories(catMap)
@@ -87,8 +80,39 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
     await load()
   }
 
+  function openEdit(e) {
+    setEditEntry(e)
+    setEditForm({
+      description: e.description ?? '',
+      original_amount: e.original_amount ?? e.amount_usd ?? '',
+      original_currency: e.original_currency ?? 'USD',
+      expense_date: e.expense_date ?? '',
+      category: categories[e.category_id] ?? 'Meals',
+    })
+  }
+
+  async function saveEdit() {
+    if (!editEntry) return
+    setSaving(true)
+    const rate = await getExchangeRate(editForm.original_currency, 'USD')
+    const usd = parseFloat((parseFloat(editForm.original_amount) * rate).toFixed(2))
+    const { data: cat } = await supabase.from('categories').select('id').eq('name', editForm.category).single()
+    await supabase.from('group_expenses').update({
+      description: editForm.description,
+      original_amount: parseFloat(editForm.original_amount),
+      original_currency: editForm.original_currency,
+      amount_usd: usd,
+      exchange_rate: rate,
+      expense_date: editForm.expense_date,
+      category_id: cat?.id ?? 2,
+    }).eq('id', editEntry.id)
+    await load()
+    setSaving(false)
+    setEditEntry(null)
+  }
+
   const totalUSD = expenses.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
-  const myShare  = expenses.reduce((s, e) => {
+  const myShare = expenses.reduce((s, e) => {
     const p = (participants[e.id] ?? []).find(p => p.traveler_id === currentUser?.id)
     return s + (p?.share_usd ?? 0)
   }, 0)
@@ -127,7 +151,7 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
       {loading ? <div className="loading">Loading...</div> : expenses.length === 0 ? (
         <div className="empty"><i className="ti ti-receipt" /><p>No group expenses yet</p></div>
       ) : (
-        <div className="card" style={{ maxHeight: '55vh', overflowY: 'auto' }}>
+        <div className="card" style={{ maxHeight: '48vh', overflowY: 'auto' }}>
           {sorted.map(e => {
             const payer = travelers.find(t => t.id === e.paid_by)
             const catName = categories[e.category_id] ?? 'Other'
@@ -137,6 +161,7 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
             const count = parts.length
             const myPart = parts.find(p => p.traveler_id === currentUser?.id)
             const pc = TRAVELER_COLORS[payer?.name] ?? { bg: '#FFE8E8', text: '#990000' }
+            const converted = e.original_currency && e.original_currency !== 'USD'
             return (
               <div key={e.id} className="row">
                 <div className="row-left">
@@ -145,19 +170,29 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <div className="fs13 fw6 truncate syne">{e.description}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
                       <div className="avatar avatar-sm" style={{ background: pc.bg, color: pc.text }}>{initials(payer?.name)}</div>
                       <span className="mono" style={{ fontSize: 11, color: 'var(--warm-500)' }}>{e.expense_date} · {count} ppl</span>
+                      {converted && (
+                        <span className="mono" style={{ fontSize: 10, color: 'var(--gold-dark)', background: 'var(--gold-light)', borderRadius: 4, padding: '1px 4px' }}>
+                          {e.original_currency} {e.original_amount?.toFixed(2)}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
-                <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
+                <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 6 }}>
                   <div className="fw6 fs13 mono">{fmtUSD(e.amount_usd)}</div>
-                  {myPart && <div className="mono" style={{ fontSize: 11, color: 'var(--cardinal)' }}>my share: {fmtUSD(myPart.share_usd)}</div>}
+                  {myPart && <div className="mono" style={{ fontSize: 10, color: 'var(--cardinal)' }}>my: {fmtUSD(myPart.share_usd)}</div>}
                 </div>
-                <button className="icon-action" style={{ marginLeft: 6 }} onClick={() => deleteExpense(e.id)}>
-                  <i className="ti ti-trash" style={{ color: 'var(--red-err)' }} />
-                </button>
+                <div style={{ display: 'flex', gap: 4, marginLeft: 4 }}>
+                  <button className="icon-action" onClick={() => openEdit(e)}>
+                    <i className="ti ti-edit" style={{ fontSize: 13 }} />
+                  </button>
+                  <button className="icon-action" onClick={() => deleteExpense(e.id)}>
+                    <i className="ti ti-trash" style={{ fontSize: 13, color: 'var(--red-err)' }} />
+                  </button>
+                </div>
               </div>
             )
           })}
@@ -172,6 +207,57 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
           currentUser={currentUser}
           defaultType={defaultType}
         />
+      )}
+
+      {editEntry && (
+        <div className="sheet-overlay" onClick={e => e.target === e.currentTarget && setEditEntry(null)}>
+          <div className="sheet">
+            <div className="sheet-handle" />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 800 }}>Edit expense</div>
+              <button onClick={() => setEditEntry(null)} className="slide-panel-close"><i className="ti ti-x" /></button>
+            </div>
+
+            <div className="form-field">
+              <label className="form-label">Description</label>
+              <input className="form-input" value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8, marginBottom: 10 }}>
+              <div className="form-field" style={{ marginBottom: 0 }}>
+                <label className="form-label">Amount</label>
+                <input className="form-input mono" type="number" value={editForm.original_amount} onChange={e => setEditForm(f => ({ ...f, original_amount: e.target.value }))} />
+              </div>
+              <div className="form-field" style={{ marginBottom: 0 }}>
+                <label className="form-label">Currency</label>
+                <select className="form-select mono" value={editForm.original_currency} onChange={e => setEditForm(f => ({ ...f, original_currency: e.target.value }))}>
+                  {CURRENCIES.map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="form-field">
+              <label className="form-label">Date</label>
+              <input className="form-input mono" type="date" value={editForm.expense_date} onChange={e => setEditForm(f => ({ ...f, expense_date: e.target.value }))} />
+            </div>
+
+            <div className="form-field">
+              <label className="form-label">Category</label>
+              <select className="form-select" value={editForm.category} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}>
+                {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <button onClick={() => setEditEntry(null)} style={{ padding: '14px', background: 'var(--warm-100)', color: 'var(--warm-800)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>
+                Cancel
+              </button>
+              <button className="kp-submit" style={{ margin: 0 }} onClick={saveEdit} disabled={saving}>
+                {saving ? 'Saving...' : 'Save changes'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )
