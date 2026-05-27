@@ -207,3 +207,91 @@ export default function SettingsPage({ currentUser, travelers, tripName, onTripN
           </div>
         </Modal>
       )}
+{pendingAction === 'rename_trip' && !showMasterPin && (
+        <Modal onClose={() => setPendingAction(null)}>
+          <ModalTitle>Rename trip</ModalTitle>
+          <ModalSub>Updates the trip name shown on all devices instantly.</ModalSub>
+          <div className="form-field">
+            <label className="form-label">Trip name</label>
+            <input className="form-input" value={newTripName} onChange={e => setNewTripName(e.target.value)} placeholder="EuroTrip 2026" autoFocus />
+          </div>
+          <BtnRow>
+            <Btn label="Cancel" onPress={() => setPendingAction(null)} />
+            <Btn label="Save" variant="primary" onPress={saveTripName} />
+          </BtnRow>
+        </Modal>
+      )}
+
+      {pendingAction === 'rename_user' && !showMasterPin && (
+        <Modal onClose={() => { setPendingAction(null); setEditingUser(null) }}>
+          <ModalTitle>Rename traveler</ModalTitle>
+          <ModalSub>{!editingUser ? 'Select the traveler to rename.' : 'Enter the new full name.'}</ModalSub>
+          {!editingUser ? (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+                {travelers.map(t => {
+                  const th = userTheme(t.name)
+                  return (
+                    <button key={t.id} onClick={() => { setEditingUser(t); setNewUserName(t.name) }} style={{ padding: '12px 10px', background: th.bg, border: 'none', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                      <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800, color: th.text, flexShrink: 0 }}>{initials(t.name)}</div>
+                      <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 12, fontWeight: 700, color: th.text }}>{t.name.split(' ')[0]}</div>
+                    </button>
+                  )
+                })}
+              </div>
+              <button onClick={() => setPendingAction(null)} style={{ width: '100%', padding: '12px', background: 'none', border: 'none', fontFamily: 'Syne, sans-serif', fontSize: 13, color: 'var(--warm-500)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+            </>
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, padding: '10px 12px', background: userTheme(editingUser.name).bg, borderRadius: 10 }}>
+                <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 20, fontWeight: 800, color: userTheme(editingUser.name).text }}>{initials(editingUser.name)}</div>
+                <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 13, fontWeight: 700, color: userTheme(editingUser.name).text }}>Renaming: {editingUser.name}</div>
+              </div>
+              <div className="form-field">
+                <label className="form-label">New full name</label>
+                <input className="form-input" value={newUserName} onChange={e => setNewUserName(e.target.value)} placeholder="First Last" autoFocus />
+              </div>
+              <BtnRow>
+                <Btn label="Back" onPress={() => setEditingUser(null)} />
+                <Btn label={saving ? 'Saving...' : 'Save name'} variant="primary" onPress={saveUserName} disabled={saving} />
+              </BtnRow>
+            </>
+          )}
+        </Modal>
+      )}
+
+      {showClearConfirm && (
+        <Modal>
+          {clearStep === 1 && (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 44, marginBottom: 10 }}>⚠️</div>
+              <ModalTitle><span style={{ color: 'var(--red-err)' }}>Clear all my data?</span></ModalTitle>
+              <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 13, color: 'var(--warm-800)', lineHeight: 1.6, marginBottom: 8 }}>
+                Your flights, hotels, expenses and all entries will be placed on <strong>death row with no appellate review</strong>. No stay of execution. No cert petition. No Hail Mary. Gone. Forever.
+              </div>
+              <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'var(--warm-400)', marginBottom: 16 }}>Even Cochran can't save them now.</div>
+              <BtnRow>
+                <Btn label="Spare them" onPress={() => setShowClearConfirm(false)} />
+                <Btn label="Execute" variant="danger" onPress={() => setClearStep(2)} />
+              </BtnRow>
+            </div>
+          )}
+          {clearStep === 2 && (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 44, marginBottom: 10 }}>🪦</div>
+              <ModalTitle><span style={{ color: 'var(--red-err)' }}>Last chance, counselor.</span></ModalTitle>
+              <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 13, color: 'var(--warm-800)', lineHeight: 1.6, marginBottom: 8 }}>
+                The court has reviewed your motion. The verdict is final. All data entered by <strong>{currentUser?.name?.split(' ')[0]}</strong> will be permanently deleted. Not reversible. Not appealable. Not forgivable.
+              </div>
+              <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'var(--red-err)', marginBottom: 16, fontWeight: 600 }}>Objection overruled. Proceed?</div>
+              <BtnRow>
+                <Btn label="Grant clemency" variant="safe" onPress={() => { setShowClearConfirm(false); setClearStep(1) }} />
+                <Btn label={clearing ? 'Deleting...' : 'DELETE ALL'} variant="danger" onPress={clearMyData} disabled={clearing} />
+              </BtnRow>
+            </div>
+          )}
+        </Modal>
+      )}
+    </>
+  )
+}
