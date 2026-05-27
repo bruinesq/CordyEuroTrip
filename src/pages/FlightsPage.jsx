@@ -26,10 +26,7 @@ export default function FlightsPage({ currentUser, travelers }) {
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase
-      .from('flights')
-      .select('*')
-      .order('departure_date')
+    const { data } = await supabase.from('flights').select('*').order('departure_date')
     setFlights(data ?? [])
     setLoading(false)
   }
@@ -185,7 +182,7 @@ export default function FlightsPage({ currentUser, travelers }) {
                     )}
                   </div>
                   <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--cardinal)', marginBottom: 10 }}>
-                    {fl.origin} → {fl.destination}
+                    {fl.origin} to {fl.destination}
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                     <InfoRow label="Airline" value={fl.airline} />
@@ -216,7 +213,7 @@ export default function FlightsPage({ currentUser, travelers }) {
         </div>
       )}
 
-     {showForm && (
+      {showForm && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'rgba(61,46,30,0.45)' }} onClick={e => e.target === e.currentTarget && setShowForm(false)}>
           <div style={{ background: 'var(--cream)', borderRadius: '22px 22px 0 0', padding: '16px 16px', paddingBottom: 'calc(90px + env(safe-area-inset-bottom, 16px))', maxHeight: '92vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
             <div style={{ width: 38, height: 4, background: 'var(--warm-200)', borderRadius: 2, margin: '0 auto 16px' }} />
@@ -286,3 +283,6 @@ export default function FlightsPage({ currentUser, travelers }) {
           </div>
         </div>
       )}
+    </>
+  )
+}
