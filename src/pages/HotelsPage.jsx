@@ -228,8 +228,9 @@ export default function HotelsPage({ currentUser, travelers }) {
       })()}
 
       {showForm && (
-        <div className="sheet-overlay" onClick={e => e.target === e.currentTarget && setShowForm(false)}>
-          <div className="sheet">
+        {showForm && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'rgba(61,46,30,0.45)' }} onClick={e => e.target === e.currentTarget && setShowForm(false)}>
+          <div style={{ background: 'var(--cream)', borderRadius: '22px 22px 0 0', padding: '16px 16px', paddingBottom: 'calc(90px + env(safe-area-inset-bottom, 16px))', maxHeight: '92vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
             <div className="sheet-handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 800 }}>{editHotel ? 'Edit hotel' : 'Add hotel'}</div>
