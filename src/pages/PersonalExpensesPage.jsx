@@ -7,17 +7,24 @@ export default function PersonalExpensesPage({ currentUser, travelers }) {
   const [pinState, setPinState] = useState('idle')
   const [pinBuf, setPinBuf] = useState('')
   const [pinError, setPinError] = useState('')
+  const [pinAction, setPinAction] = useState('unlock') // unlock | change_verify | change_new | remove_verify
   const [expenses, setExpenses] = useState([])
   const [catMap, setCatMap] = useState({})
   const [geShare, setGeShare] = useState(0)
   const [loading, setLoading] = useState(false)
   const [showKeypad, setShowKeypad] = useState(false)
+  const [showPinMgmt, setShowPinMgmt] = useState(false)
 
   useEffect(() => { if (currentUser) checkPin() }, [currentUser])
 
   async function checkPin() {
     const { data } = await supabase.from('travelers').select('pin_hash').eq('id', currentUser.id).single()
     setPinState(data?.pin_hash ? 'entry' : 'setup')
+  }
+
+  function resetPin() {
+    setPinBuf('')
+    setPinError('')
   }
 
   async function handlePinKey(v) {
@@ -28,17 +35,44 @@ export default function PersonalExpensesPage({ currentUser, travelers }) {
     if (next.length === 4) setTimeout(() => attemptPin(next), 150)
   }
 
+  async function verifyCurrentPin(pin) {
+    const { data } = await supabase.from('travelers').select('pin_hash').eq('id', currentUser.id).single()
+    return bcrypt.compare(pin, data?.pin_hash ?? '')
+  }
+
   async function attemptPin(pin) {
-    if (pinState === 'setup') {
+    if (pinAction === 'setup') {
       const hash = await bcrypt.hash(pin, 10)
       await supabase.from('travelers').update({ pin_hash: hash }).eq('id', currentUser.id)
       setPinState('unlocked')
       loadData()
-    } else {
-      const { data } = await supabase.from('travelers').select('pin_hash').eq('id', currentUser.id).single()
-      const ok = await bcrypt.compare(pin, data?.pin_hash ?? '')
+    } else if (pinAction === 'unlock') {
+      const ok = await verifyCurrentPin(pin)
       if (ok) { setPinState('unlocked'); loadData() }
-      else { setPinError('Incorrect PIN. Try again.'); setPinBuf('') }
+      else { setPinError('Incorrect PIN. Try again.'); resetPin() }
+    } else if (pinAction === 'change_verify') {
+      const ok = await verifyCurrentPin(pin)
+      if (ok) { setPinAction('change_new'); resetPin(); setPinError('') }
+      else { setPinError('Incorrect PIN. Try again.'); resetPin() }
+    } else if (pinAction === 'change_new') {
+      const hash = await bcrypt.hash(pin, 10)
+      await supabase.from('travelers').update({ pin_hash: hash }).eq('id', currentUser.id)
+      setPinAction('unlock')
+      setPinState('unlocked')
+      setShowPinMgmt(false)
+      resetPin()
+    } else if (pinAction === 'remove_verify') {
+      const ok = await verifyCurrentPin(pin)
+      if (ok) {
+        await supabase.from('travelers').update({ pin_hash: null }).eq('id', currentUser.id)
+        setPinState('setup')
+        setPinAction('setup')
+        setShowPinMgmt(false)
+        resetPin()
+      } else {
+        setPinError('Incorrect PIN. Try again.')
+        resetPin()
+      }
     }
   }
 
@@ -85,19 +119,31 @@ export default function PersonalExpensesPage({ currentUser, travelers }) {
   const peTotal = expenses.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
   const tripTotal = geShare + peTotal
 
-  if (pinState === 'idle') return <div className="loading">Loading...</div>
-
-  if (pinState === 'entry' || pinState === 'setup') {
+  function PinScreen() {
+    const titles = {
+      setup: 'Create your PIN',
+      unlock: 'Enter your PIN',
+      change_verify: 'Enter current PIN',
+      change_new: 'Enter new PIN',
+      remove_verify: 'Enter PIN to remove',
+    }
+    const subs = {
+      setup: 'Create a 4-digit PIN to protect your personal expenses',
+      unlock: 'Welcome back, ' + (currentUser?.name?.split(' ')[0] ?? ''),
+      change_verify: 'Confirm your current PIN first',
+      change_new: 'Choose a new 4-digit PIN',
+      remove_verify: 'Enter your current PIN to remove it',
+    }
     return (
       <div className="pin-screen">
         <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'var(--cardinal-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
           <i className="ti ti-lock" style={{ fontSize: 28, color: 'var(--cardinal)' }} />
         </div>
-        <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800 }}>Personal expenses</div>
-        <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 13, color: 'var(--warm-500)', marginTop: 6, textAlign: 'center' }}>
-          {pinState === 'setup' ? 'Create a 4-digit PIN to protect your personal expenses' : 'Enter your PIN, ' + (currentUser?.name?.split(' ')[0] ?? '')}
+        <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800 }}>{titles[pinAction] ?? 'Enter PIN'}</div>
+        <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 13, color: 'var(--warm-500)', marginTop: 6, textAlign: 'center', maxWidth: 240 }}>
+          {subs[pinAction] ?? ''}
         </div>
-        {pinError && <div style={{ color: 'var(--red-err)', fontSize: 13, marginTop: 6, fontFamily: 'Syne, sans-serif' }}>{pinError}</div>}
+        {pinError && <div style={{ color: 'var(--red-err)', fontSize: 13, marginTop: 8, fontFamily: 'Syne, sans-serif' }}>{pinError}</div>}
         <div className="pin-dots">
           {[0,1,2,3].map(i => <div key={i} className={`pin-dot ${i < pinBuf.length ? 'filled' : ''}`} />)}
         </div>
@@ -105,10 +151,44 @@ export default function PersonalExpensesPage({ currentUser, travelers }) {
           {[1,2,3,4,5,6,7,8,9].map(n => (
             <button key={n} className="pin-key" onClick={() => handlePinKey(String(n))}>{n}</button>
           ))}
-          <button className="pin-key" style={{ fontSize: 12, fontFamily: 'Syne, sans-serif' }} onClick={() => { setPinBuf(''); setPinError('') }}>Clear</button>
+          <button className="pin-key" style={{ fontSize: 12, fontFamily: 'Syne, sans-serif' }} onClick={resetPin}>Clear</button>
           <button className="pin-key" onClick={() => handlePinKey('0')}>0</button>
           <button className="pin-key" onClick={() => handlePinKey('del')}><i className="ti ti-backspace" style={{ fontSize: 18 }} /></button>
         </div>
+        {(pinAction === 'change_verify' || pinAction === 'remove_verify') && (
+          <button onClick={() => { setPinAction('unlock'); resetPin() }} style={{ marginTop: 16, background: 'none', border: 'none', fontFamily: 'Syne, sans-serif', fontSize: 13, color: 'var(--warm-500)', cursor: 'pointer' }}>
+            Cancel
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  if (pinState === 'idle') return <div className="loading">Loading...</div>
+
+  if (pinState === 'entry' || pinState === 'setup') {
+    return <PinScreen />
+  }
+
+  if (showPinMgmt) {
+    if (pinAction !== 'unlock') return <PinScreen />
+    return (
+      <div style={{ padding: '8px 0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 800 }}>PIN settings</div>
+          <button onClick={() => { setShowPinMgmt(false); setPinAction('unlock') }} className="slide-panel-close"><i className="ti ti-x" /></button>
+        </div>
+        <div className="card">
+          <button onClick={() => { setPinAction('change_verify'); resetPin() }} style={{ width: '100%', padding: '14px 0', background: 'none', border: 'none', fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700, color: 'var(--warm-800)', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--warm-100)' }}>
+            <i className="ti ti-key" style={{ fontSize: 18, color: 'var(--cardinal)' }} /> Change PIN
+          </button>
+          <button onClick={() => { setPinAction('remove_verify'); resetPin() }} style={{ width: '100%', padding: '14px 0', background: 'none', border: 'none', fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700, color: 'var(--red-err)', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <i className="ti ti-lock-open" style={{ fontSize: 18 }} /> Remove PIN
+          </button>
+        </div>
+        <p style={{ fontFamily: 'Syne, sans-serif', fontSize: 12, color: 'var(--warm-300)', textAlign: 'center', marginTop: 12 }}>
+          Removing PIN will make personal expenses visible without a code.
+        </p>
       </div>
     )
   }
@@ -135,9 +215,14 @@ export default function PersonalExpensesPage({ currentUser, travelers }) {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <div className="section-label" style={{ marginBottom: 0 }}>My personal expenses</div>
-        <button onClick={() => { setPinState('entry'); setPinBuf(''); setPinError('') }} style={{ fontSize: 11, color: 'var(--warm-500)', background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'Syne, sans-serif', fontWeight: 700 }}>
-          <i className="ti ti-lock" style={{ fontSize: 13 }} /> Lock
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => { setShowPinMgmt(true); setPinAction('unlock') }} style={{ fontSize: 11, color: 'var(--warm-500)', background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'Syne, sans-serif', fontWeight: 700, cursor: 'pointer' }}>
+            <i className="ti ti-key" style={{ fontSize: 13 }} /> PIN
+          </button>
+          <button onClick={() => { setPinState('entry'); setPinAction('unlock'); resetPin() }} style={{ fontSize: 11, color: 'var(--warm-500)', background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'Syne, sans-serif', fontWeight: 700, cursor: 'pointer' }}>
+            <i className="ti ti-lock" style={{ fontSize: 13 }} /> Lock
+          </button>
+        </div>
       </div>
 
       {loading ? <div className="loading">Loading...</div> : expenses.length === 0 ? (
@@ -148,6 +233,7 @@ export default function PersonalExpensesPage({ currentUser, travelers }) {
             const catName = catMap[e.category_id] ?? 'Other'
             const cc = CATEGORY_COLORS[catName] ?? { bg: '#F7F0E8', icon: '#8A7560' }
             const icon = CATEGORY_ICONS[catName] ?? 'ti-dots'
+            const converted = e.original_currency && e.original_currency !== 'USD'
             return (
               <div key={e.id} className="row">
                 <div className="row-left">
@@ -158,6 +244,11 @@ export default function PersonalExpensesPage({ currentUser, travelers }) {
                     <div className="fs13 fw6 truncate syne">{e.description}</div>
                     <div className="mono" style={{ fontSize: 11, color: 'var(--warm-500)', marginTop: 2 }}>
                       {e.expense_date} · {catName}
+                      {converted && (
+                        <span style={{ color: 'var(--gold-dark)', marginLeft: 4 }}>
+                          ({e.original_currency} {e.original_amount?.toFixed(2)})
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
