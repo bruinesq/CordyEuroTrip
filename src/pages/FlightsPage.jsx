@@ -216,10 +216,10 @@ export default function FlightsPage({ currentUser, travelers }) {
         </div>
       )}
 
-      {showForm && (
-        <div className="sheet-overlay" onClick={e => e.target === e.currentTarget && setShowForm(false)}>
-          <div className="sheet">
-            <div className="sheet-handle" />
+     {showForm && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'rgba(61,46,30,0.45)' }} onClick={e => e.target === e.currentTarget && setShowForm(false)}>
+          <div style={{ background: 'var(--cream)', borderRadius: '22px 22px 0 0', padding: '16px 16px', paddingBottom: 'calc(90px + env(safe-area-inset-bottom, 16px))', maxHeight: '92vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            <div style={{ width: 38, height: 4, background: 'var(--warm-200)', borderRadius: 2, margin: '0 auto 16px' }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 800 }}>{editFlight ? 'Edit flight' : 'Add flight'}</div>
               <button onClick={() => setShowForm(false)} className="slide-panel-close"><i className="ti ti-x" /></button>
@@ -275,7 +275,7 @@ export default function FlightsPage({ currentUser, travelers }) {
               <input className="form-input" placeholder="Seat, terminal, booking ref..." value={form.notes} onChange={set('notes')} />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 4 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <button onClick={() => setShowForm(false)} style={{ padding: '14px', background: 'var(--warm-100)', color: 'var(--warm-800)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>
                 Cancel
               </button>
@@ -286,6 +286,3 @@ export default function FlightsPage({ currentUser, travelers }) {
           </div>
         </div>
       )}
-    </>
-  )
-}
