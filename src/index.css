@@ -133,7 +133,8 @@ input, select, textarea {
 }
 .nav-item.active { color: var(--cardinal); }
 .nav-item i { font-size: 22px; }
-.nav-item.active i { color: var(--cardinal); }
+.nav-item.active { color: inherit; }
+.nav-item.active i { color: inherit; }
 
 /* CONTENT */
 .content {
