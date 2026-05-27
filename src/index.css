@@ -452,7 +452,7 @@ input, select, textarea {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 14px 12px;
-  padding-bottom: calc(80px + var(--safe-bottom));
+  padding-bottom: calc(100px + var(--safe-bottom));
 }
 
 .sheet {
@@ -506,4 +506,8 @@ input, select, textarea {
   z-index: 50;
   display: flex;
   background: rgba(61,46,30,0.35);
+}
+/* Ensure all primary action buttons clear the nav bar on iPhone */
+.add-btn {
+  margin-bottom: 4px;
 }
