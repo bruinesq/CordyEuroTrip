@@ -216,7 +216,7 @@ export default function App() {
         {tab === 'flights'  && <FlightsPage  {...pageProps} />}
         {tab === 'hotels'   && <HotelsPage   {...pageProps} />}
         {tab === 'group'    && <GroupExpensesPage {...pageProps} defaultType="ge" />}
-        {tab === 'personal' && <PersonalExpensesPage {...pageProps} />}
+        {tab === 'personal' && <PersonalExpensesPage {...pageProps} onSwitchTab={setTab} />}
         {tab === 'balances' && <BalancesPage {...pageProps} />}
         {tab === 'logs'     && <LogsPage     {...pageProps} />}
         {tab === 'settings' && <SettingsPage {...pageProps} tripName={tripName} onTripNameChange={handleTripNameChange} onReload={loadTravelers} />}
