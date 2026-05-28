@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase, userTheme, initials } from './lib/supabase'
+import { supabase, userTheme, initials, MASTER_PIN } from './lib/supabase'
 import FlightsPage from './pages/FlightsPage'
 import HotelsPage from './pages/HotelsPage'
 import GroupExpensesPage from './pages/GroupExpensesPage'
@@ -23,7 +23,7 @@ const TAGLINES = [
   'Motion to adjourn — to Europe.',
   'Objection: too much fun.',
   'Bar-passed. Passport-stamped.',
-  'Sustained. Also: rose.',
+  'Sustained. Also: rosé.',
   'Where the only briefs are bikini.',
   'Discovery phase: gelato.',
   'USC Trojans. Fight On. Check In.',
@@ -38,6 +38,12 @@ export default function App() {
   const [showUserPicker, setShowUserPicker] = useState(false)
   const [tagline] = useState(() => TAGLINES[Math.floor(Math.random() * TAGLINES.length)])
   const [tripName, setTripName] = useState(() => localStorage.getItem('eurotrip_name') ?? DEFAULT_TRIP)
+
+  // Session-level PIN unlock state
+  // unlockedUsers: Set of traveler IDs whose PIN has been verified this session
+  // masterUnlocked: true if master PIN (1515) was used — unlocks everyone silently
+  const [unlockedUsers, setUnlockedUsers] = useState(new Set())
+  const [masterUnlocked, setMasterUnlocked] = useState(false)
 
   useEffect(() => {
     loadTravelers()
@@ -66,6 +72,30 @@ export default function App() {
     setCurrentUser(updatedUser)
     localStorage.setItem('eurotrip_user', JSON.stringify(updatedUser))
     loadTravelers()
+  }
+
+  // Called by child pages when a PIN is successfully verified
+  function onPinUnlocked(travelerId, usedMasterPin = false) {
+    if (usedMasterPin) {
+      setMasterUnlocked(true)
+    } else {
+      setUnlockedUsers(prev => new Set([...prev, travelerId]))
+    }
+  }
+
+  // Check if a given traveler's PIN-gated content is unlocked this session
+  function isPinUnlocked(travelerId) {
+    return masterUnlocked || unlockedUsers.has(travelerId)
+  }
+
+  // Lock current user's session (re-requires PIN)
+  function lockUser(travelerId) {
+    setMasterUnlocked(false)
+    setUnlockedUsers(prev => {
+      const next = new Set(prev)
+      next.delete(travelerId)
+      return next
+    })
   }
 
   if (showUserPicker) {
@@ -142,7 +172,15 @@ export default function App() {
   }
 
   const theme = userTheme(currentUser?.name)
-  const pageProps = { currentUser, travelers, refreshUser }
+  const pageProps = {
+    currentUser,
+    travelers,
+    refreshUser,
+    isPinUnlocked,
+    onPinUnlocked,
+    lockUser,
+    masterUnlocked,
+  }
 
   return (
     <div className="app">
