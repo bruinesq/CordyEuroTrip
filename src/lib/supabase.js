@@ -83,3 +83,21 @@ export function initials(name) {
 export function userTheme(name) {
   return TRAVELER_COLORS[name] ?? { bg: '#444441', text: '#FFFFFF', light: '#F1EFE8', lightText: '#444441' }
 }
+
+// ── PIN helpers ──────────────────────────────────────────────────────────────
+export const MASTER_PIN = '1515'
+
+// Simple SHA-256 hash using Web Crypto API (no bcrypt needed for master check)
+export async function hashPin(pin) {
+  const encoder = new TextEncoder()
+  const data = encoder.encode(pin + 'eurotrip2026_salt')
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+export async function verifyPin(pin, storedHash) {
+  if (!storedHash) return false
+  const hash = await hashPin(pin)
+  return hash === storedHash
+}
