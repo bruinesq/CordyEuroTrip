@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react'
 import { supabase, fmtUSD, CATEGORY_ICONS, CATEGORY_COLORS, hashPin, verifyPin, MASTER_PIN } from '../lib/supabase'
 import Keypad from '../components/Keypad'
 
-export default function PersonalExpensesPage({ currentUser, travelers, isPinUnlocked, onPinUnlocked, lockUser }) {
+export default function PersonalExpensesPage({ currentUser, travelers, isPinUnlocked, onPinUnlocked, lockUser, onSwitchTab }) {
   const [pinState, setPinState] = useState('idle')   // idle | setup | entry | unlocked
   const [pinBuf, setPinBuf] = useState('')
   const [pinError, setPinError] = useState('')
+  const [pinChecking, setPinChecking] = useState(false)
   const [pinAction, setPinAction] = useState('unlock') // unlock | setup | change_verify | change_new | remove_verify
   const [expenses, setExpenses] = useState([])
   const [catMap, setCatMap] = useState({})
@@ -14,11 +15,9 @@ export default function PersonalExpensesPage({ currentUser, travelers, isPinUnlo
   const [showKeypad, setShowKeypad] = useState(false)
   const [showPinMgmt, setShowPinMgmt] = useState(false)
 
-  // On mount / user change: check if already unlocked in session, else check for stored PIN
   useEffect(() => {
     if (!currentUser) return
     if (isPinUnlocked && isPinUnlocked(currentUser.id)) {
-      // Already unlocked this session (PIN was entered earlier, e.g. from Flights page)
       setPinState('unlocked')
       loadData()
     } else {
@@ -37,12 +36,13 @@ export default function PersonalExpensesPage({ currentUser, travelers, isPinUnlo
     }
   }
 
-  function resetPin() {
+  function resetPin(keepError = false) {
     setPinBuf('')
-    setPinError('')
+    if (!keepError) setPinError('')
   }
 
   async function handlePinKey(v) {
+    if (pinChecking) return
     if (v === 'del') { setPinBuf(b => b.slice(0, -1)); setPinError(''); return }
     if (pinBuf.length >= 4) return
     const next = pinBuf + v
@@ -51,12 +51,16 @@ export default function PersonalExpensesPage({ currentUser, travelers, isPinUnlo
   }
 
   async function attemptPin(pin) {
+    setPinChecking(true)
+    setPinError('')
+
     // Master PIN override — unlocks silently
-    if (pin === MASTER_PIN && (pinAction === 'unlock')) {
+    if (pin === MASTER_PIN && pinAction === 'unlock') {
       if (onPinUnlocked) onPinUnlocked(currentUser.id, true)
       setPinState('unlocked')
-      loadData()
+      setPinChecking(false)
       resetPin()
+      loadData()
       return
     }
 
@@ -65,8 +69,9 @@ export default function PersonalExpensesPage({ currentUser, travelers, isPinUnlo
       await supabase.from('travelers').update({ pin_hash: hash }).eq('id', currentUser.id)
       if (onPinUnlocked) onPinUnlocked(currentUser.id, false)
       setPinState('unlocked')
-      loadData()
+      setPinChecking(false)
       resetPin()
+      loadData()
 
     } else if (pinAction === 'unlock') {
       const { data } = await supabase.from('travelers').select('pin_hash').eq('id', currentUser.id).single()
@@ -74,18 +79,20 @@ export default function PersonalExpensesPage({ currentUser, travelers, isPinUnlo
       if (ok) {
         if (onPinUnlocked) onPinUnlocked(currentUser.id, false)
         setPinState('unlocked')
+        setPinChecking(false)
+        resetPin()
         loadData()
-        resetPin()
       } else {
-        setPinError('Incorrect PIN. Try again.')
-        resetPin()
+        setPinError('Incorrect PIN — try again.')
+        setPinBuf('')   // clear digits but keep error visible
+        setPinChecking(false)
       }
 
     } else if (pinAction === 'change_verify') {
       const { data } = await supabase.from('travelers').select('pin_hash').eq('id', currentUser.id).single()
       const ok = await verifyPin(pin, data?.pin_hash ?? '')
-      if (ok) { setPinAction('change_new'); resetPin() }
-      else { setPinError('Incorrect PIN. Try again.'); resetPin() }
+      if (ok) { setPinAction('change_new'); resetPin(); setPinChecking(false) }
+      else { setPinError('Incorrect PIN — try again.'); setPinBuf(''); setPinChecking(false) }
 
     } else if (pinAction === 'change_new') {
       const hash = await hashPin(pin)
@@ -93,6 +100,7 @@ export default function PersonalExpensesPage({ currentUser, travelers, isPinUnlo
       setPinAction('unlock')
       setPinState('unlocked')
       setShowPinMgmt(false)
+      setPinChecking(false)
       resetPin()
 
     } else if (pinAction === 'remove_verify') {
@@ -103,12 +111,13 @@ export default function PersonalExpensesPage({ currentUser, travelers, isPinUnlo
         setPinState('setup')
         setPinAction('setup')
         setShowPinMgmt(false)
-        // Also remove from session unlock set
         if (lockUser) lockUser(currentUser.id)
+        setPinChecking(false)
         resetPin()
       } else {
-        setPinError('Incorrect PIN. Try again.')
-        resetPin()
+        setPinError('Incorrect PIN — try again.')
+        setPinBuf('')
+        setPinChecking(false)
       }
     }
   }
@@ -156,6 +165,7 @@ export default function PersonalExpensesPage({ currentUser, travelers, isPinUnlo
   const peTotal = expenses.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
   const tripTotal = geShare + peTotal
 
+  // ── PIN Screen ──────────────────────────────────────────────────────────────
   function PinScreen() {
     const titles = {
       setup:          'Create your PIN',
@@ -165,50 +175,88 @@ export default function PersonalExpensesPage({ currentUser, travelers, isPinUnlo
       remove_verify:  'Enter PIN to remove',
     }
     const subs = {
-      setup:         'Your PIN protects your Personal Expenses and Flight Notes — only you can view them.',
-      unlock:        'Welcome back, ' + (currentUser?.name?.split(' ')[0] ?? ''),
-      change_verify: 'Confirm your current PIN first',
-      change_new:    'Choose a new 4-digit PIN',
-      remove_verify: 'Enter your current PIN to remove it',
+      setup:          'Your PIN protects your Personal Expenses and Flight Notes — only you can view them.',
+      unlock:         'Welcome back, ' + (currentUser?.name?.split(' ')[0] ?? ''),
+      change_verify:  'Confirm your current PIN first',
+      change_new:     'Choose a new 4-digit PIN',
+      remove_verify:  'Enter your current PIN to remove it',
     }
+
     return (
       <div className="pin-screen">
+        {/* Lock icon */}
         <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'var(--cardinal-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
           <i className="ti ti-lock" style={{ fontSize: 28, color: 'var(--cardinal)' }} />
         </div>
-        <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800 }}>{titles[pinAction] ?? 'Enter PIN'}</div>
+
+        <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800 }}>
+          {titles[pinAction] ?? 'Enter PIN'}
+        </div>
         <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 13, color: 'var(--warm-500)', marginTop: 6, textAlign: 'center', maxWidth: 260 }}>
           {subs[pinAction] ?? ''}
         </div>
-        {pinError && <div style={{ color: 'var(--red-err)', fontSize: 13, marginTop: 8, fontFamily: 'Syne, sans-serif' }}>{pinError}</div>}
-        <div className="pin-dots">
-          {[0,1,2,3].map(i => <div key={i} className={`pin-dot ${i < pinBuf.length ? 'filled' : ''}`} />)}
+
+        {/* Error message — shown until next key press */}
+        <div style={{ minHeight: 22, marginTop: 8 }}>
+          {pinError
+            ? <div style={{ color: 'var(--red-err)', fontSize: 13, fontFamily: 'Syne, sans-serif', fontWeight: 600, textAlign: 'center' }}>{pinError}</div>
+            : pinChecking
+              ? <div style={{ color: 'var(--warm-400)', fontSize: 12, fontFamily: 'Syne, sans-serif', textAlign: 'center' }}>Checking…</div>
+              : null
+          }
         </div>
+
+        {/* PIN dots */}
+        <div className="pin-dots">
+          {[0,1,2,3].map(i => (
+            <div key={i} className={`pin-dot ${i < pinBuf.length ? 'filled' : ''}`}
+              style={pinError ? { background: i < pinBuf.length ? 'var(--red-err)' : undefined, borderColor: 'var(--red-err)' } : {}}
+            />
+          ))}
+        </div>
+
+        {/* Numpad */}
         <div className="pin-grid">
           {[1,2,3,4,5,6,7,8,9].map(n => (
-            <button key={n} className="pin-key" onClick={() => handlePinKey(String(n))}>{n}</button>
+            <button key={n} className="pin-key" disabled={pinChecking} onClick={() => handlePinKey(String(n))}>{n}</button>
           ))}
-          <button className="pin-key" style={{ fontSize: 12, fontFamily: 'Syne, sans-serif' }} onClick={resetPin}>Clear</button>
-          <button className="pin-key" onClick={() => handlePinKey('0')}>0</button>
-          <button className="pin-key" onClick={() => handlePinKey('del')}><i className="ti ti-backspace" style={{ fontSize: 18 }} /></button>
+          <button className="pin-key" style={{ fontSize: 12, fontFamily: 'Syne, sans-serif' }} disabled={pinChecking} onClick={() => { setPinBuf(''); setPinError('') }}>Clear</button>
+          <button className="pin-key" disabled={pinChecking} onClick={() => handlePinKey('0')}>0</button>
+          <button className="pin-key" disabled={pinChecking} onClick={() => handlePinKey('del')}>
+            <i className="ti ti-backspace" style={{ fontSize: 18 }} />
+          </button>
         </div>
+
+        {/* Cancel — shown during change/remove flows */}
         {(pinAction === 'change_verify' || pinAction === 'remove_verify') && (
           <button onClick={() => { setPinAction('unlock'); resetPin() }}
-            style={{ marginTop: 16, background: 'none', border: 'none', fontFamily: 'Syne, sans-serif', fontSize: 13, color: 'var(--warm-500)', cursor: 'pointer' }}>
+            style={{ marginTop: 12, background: 'none', border: 'none', fontFamily: 'Syne, sans-serif', fontSize: 13, color: 'var(--warm-500)', cursor: 'pointer' }}>
             Cancel
+          </button>
+        )}
+
+        {/* Switch user — shown on entry/setup screen so user is never trapped */}
+        {(pinAction === 'unlock' || pinAction === 'setup') && (
+          <button
+            onClick={() => {
+              // Navigate away — user can pick a different name
+              if (onSwitchTab) onSwitchTab('flights')
+            }}
+            style={{ marginTop: 14, background: 'none', border: 'none', fontFamily: 'Syne, sans-serif', fontSize: 12, color: 'var(--warm-400)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <i className="ti ti-arrow-left" style={{ fontSize: 13 }} /> Back to Flights
           </button>
         )}
       </div>
     )
   }
 
-  if (pinState === 'idle') return <div className="loading">Loading...</div>
+  // ── Render gates ─────────────────────────────────────────────────────────────
+  if (pinState === 'idle') return <div className="loading">Loading…</div>
 
-  if (pinState === 'entry' || pinState === 'setup') {
-    return <PinScreen />
-  }
+  if (pinState === 'entry' || pinState === 'setup') return <PinScreen />
 
   if (showPinMgmt) {
+    // If a PIN action sub-flow is active, show the PIN screen for it
     if (pinAction !== 'unlock') return <PinScreen />
     return (
       <div style={{ padding: '8px 0' }}>
@@ -231,14 +279,16 @@ export default function PersonalExpensesPage({ currentUser, travelers, isPinUnlo
           </button>
         </div>
         <p style={{ fontFamily: 'Syne, sans-serif', fontSize: 12, color: 'var(--warm-300)', textAlign: 'center', marginTop: 12 }}>
-          Removing PIN will make personal expenses and flight notes visible without a code.
+          Removing your PIN will make personal expenses and flight notes visible without a code.
         </p>
       </div>
     )
   }
 
+  // ── Unlocked view ─────────────────────────────────────────────────────────────
   return (
     <>
+      {/* Trip summary card */}
       <div style={{ background: '#fff', border: '1px solid var(--warm-200)', borderRadius: 14, padding: '12px 14px', marginBottom: 12 }}>
         <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 11, fontWeight: 800, color: 'var(--warm-500)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>
           {currentUser?.name?.split(' ')[0]}'s trip summary
@@ -257,6 +307,7 @@ export default function PersonalExpensesPage({ currentUser, travelers, isPinUnlo
         </div>
       </div>
 
+      {/* Header row with PIN and Lock controls */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <div className="section-label" style={{ marginBottom: 0 }}>My personal expenses</div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -278,7 +329,8 @@ export default function PersonalExpensesPage({ currentUser, travelers, isPinUnlo
         </div>
       </div>
 
-      {loading ? <div className="loading">Loading...</div> : expenses.length === 0 ? (
+      {/* Expense list */}
+      {loading ? <div className="loading">Loading…</div> : expenses.length === 0 ? (
         <div className="empty"><i className="ti ti-receipt" /><p>No personal expenses yet</p></div>
       ) : (
         <div className="card" style={{ maxHeight: '50vh', overflowY: 'auto' }}>
