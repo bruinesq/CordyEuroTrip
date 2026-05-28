@@ -391,6 +391,29 @@ When starting a new Claude session to continue this project:
 
 5. **If the change requires a DB migration,** Claude will provide the SQL. Run it in Supabase → SQL Editor.
 
+### Session 6 — Personal Expenses PIN Bug Fixes (Current)
+
+Three bugs identified and fixed in `PersonalExpensesPage.jsx`:
+
+**Bug 1 — User trapped on PIN screen with no exit.**
+No close or back button existed on the PIN entry/setup screen. Added a "← Back to Flights" button at the bottom of the PIN entry and setup screens. Implemented via new `onSwitchTab` prop passed from `App.jsx` → `PersonalExpensesPage`. User can always navigate away without entering a PIN.
+
+**Bug 2 — No feedback when wrong PIN entered.**
+Root cause: `resetPin()` was clearing both `pinBuf` (digits) and `pinError` (error message) simultaneously, wiping the error before it could render. Fix: separated the two — on wrong PIN, only digits are cleared while error message stays visible. Added `pinChecking` boolean state that shows "Checking…" below the dots while Supabase query runs. Dots turn red on failure for unmistakable visual feedback.
+
+**Bug 3 — Numpad active during async PIN check.**
+Rapid tapping during the Supabase verification could queue extra digits. Fixed by adding `disabled={pinChecking}` to all numpad buttons.
+
+**Files changed:**
+- `src/pages/PersonalExpensesPage.jsx` — all three fixes above
+- `src/App.jsx` — added `onSwitchTab={setTab}` prop passed to `PersonalExpensesPage`
+
+**Confirmed behavior after fixes:**
+- PIN entry screen has clear error feedback and a back button
+- Unlocked view shows only that user's personal expenses
+- PIN button (key icon) → Change PIN or Remove PIN (both require current PIN first)
+- Lock button → immediately re-locks and requires PIN re-entry
+
 ---
 
 ## Troubleshooting
