@@ -10,7 +10,12 @@ export default function HotelsPage({ currentUser, travelers }) {
   const [selectedHotel, setSelectedHotel] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
-  const empty = { hotel_name:'', city:'', address:'', phone:'', confirmation_number:'', check_in:'', check_out:'', original_amount:'', original_currency:'USD', notes:'' }
+
+  const empty = {
+    hotel_name: '', city: '', address: '', phone: '',
+    confirmation_number: '', check_in: '', check_out: '',
+    original_amount: '', original_currency: 'USD', notes: ''
+  }
   const [form, setForm] = useState(empty)
   const [guests, setGuests] = useState([])
 
@@ -29,6 +34,56 @@ export default function HotelsPage({ currentUser, travelers }) {
     }
     setGuestMap(map)
     setLoading(false)
+  }
+
+  // ── Get Hotel category ID ────────────────────────────────────────────────────
+  async function getHotelCategoryId() {
+    const { data } = await supabase.from('categories').select('id').eq('name', 'Hotel').single()
+    return data?.id ?? 1
+  }
+
+  // ── Sync hotel → group_expenses ──────────────────────────────────────────────
+  // Creates or updates a group expense record linked to this hotel.
+  // The link is stored via hotel.group_expense_id column (add migration below).
+  async function syncGroupExpense(hotelId, payload, guestIds, bookedBy, isEdit, existingGeId) {
+    const categoryId = await getHotelCategoryId()
+    const description = [payload.hotel_name, payload.city].filter(Boolean).join(' · ')
+    const gePayload = {
+      paid_by: bookedBy,
+      description,
+      original_amount: payload.original_amount,
+      original_currency: payload.original_currency,
+      amount_usd: payload.total_cost_usd,
+      exchange_rate: payload.exchange_rate,
+      expense_date: payload.check_in,
+      category_id: categoryId,
+      hotel_id: hotelId,   // back-reference so we can find it later
+    }
+
+    let geId = existingGeId
+
+    if (isEdit && existingGeId) {
+      // Update existing group expense
+      const { error } = await supabase.from('group_expenses').update(gePayload).eq('id', existingGeId)
+      if (error) { console.error('[Hotels] GE update error:', error); return }
+      // Rebuild participants
+      await supabase.from('group_expense_participants').delete().eq('expense_id', existingGeId)
+    } else {
+      // Insert new group expense
+      const { data: ge, error } = await supabase.from('group_expenses').insert(gePayload).select().single()
+      if (error || !ge) { console.error('[Hotels] GE insert error:', error); return }
+      geId = ge.id
+      // Save group_expense_id back on the hotel row
+      await supabase.from('hotels').update({ group_expense_id: geId }).eq('id', hotelId)
+    }
+
+    // Insert participants (equal share)
+    if (geId && guestIds.length) {
+      const share = parseFloat((payload.total_cost_usd / guestIds.length).toFixed(2))
+      await supabase.from('group_expense_participants').insert(
+        guestIds.map(tid => ({ expense_id: geId, traveler_id: tid, share_usd: share }))
+      )
+    }
   }
 
   function set(field) { return e => setForm(p => ({ ...p, [field]: e.target.value })) }
@@ -88,8 +143,11 @@ export default function HotelsPage({ currentUser, travelers }) {
     }
 
     let hotelId = editHotel?.id
+    const isEdit = !!editHotel
+    const existingGeId = editHotel?.group_expense_id ?? null
+    const bookedBy = isEdit ? editHotel.booked_by : currentUser.id
 
-    if (editHotel) {
+    if (isEdit) {
       const { error } = await supabase.from('hotels').update(payload).eq('id', editHotel.id)
       if (error) {
         console.error('[Hotels] update error:', error)
@@ -113,6 +171,7 @@ export default function HotelsPage({ currentUser, travelers }) {
       hotelId = h.id
     }
 
+    // Insert hotel guests
     if (hotelId && guests.length) {
       const { error: guestError } = await supabase
         .from('hotel_guests')
@@ -120,19 +179,30 @@ export default function HotelsPage({ currentUser, travelers }) {
       if (guestError) console.error('[Hotels] guest insert error:', guestError)
     }
 
+    // Sync to group expenses
+    await syncGroupExpense(hotelId, payload, guests, bookedBy, isEdit, existingGeId)
+
     await load()
     setSaving(false)
     setShowForm(false)
   }
 
   async function deleteHotel(id) {
-    if (!confirm('Delete this hotel?')) return
+    if (!confirm('Delete this hotel and its group expense record?')) return
+    // Find linked group expense and delete it first
+    const hotel = hotels.find(h => h.id === id)
+    if (hotel?.group_expense_id) {
+      await supabase.from('group_expense_participants').delete().eq('expense_id', hotel.group_expense_id)
+      await supabase.from('group_expenses').delete().eq('id', hotel.group_expense_id)
+    }
     await supabase.from('hotels').delete().eq('id', id)
     setSelectedHotel(null)
     await load()
   }
 
-  function toggleGuest(id) { setGuests(g => g.includes(id) ? g.filter(x => x !== id) : [...g, id]) }
+  function toggleGuest(id) {
+    setGuests(g => g.includes(id) ? g.filter(x => x !== id) : [...g, id])
+  }
 
   function DetailRow({ label, value, link }) {
     if (!value) return null
@@ -168,7 +238,7 @@ export default function HotelsPage({ currentUser, travelers }) {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
               <span className="badge mono" style={{ background: isOld ? 'var(--warm-100)' : 'var(--cardinal-light)', color: isOld ? 'var(--warm-300)' : 'var(--cardinal)' }}>
-                {h.check_in} to {h.check_out}
+                {h.check_in} → {h.check_out}
               </span>
               <span className="mono fw6" style={{ fontSize: 13, color: 'var(--green)' }}>{fmtUSD(h.total_cost_usd)}</span>
             </div>
@@ -187,11 +257,12 @@ export default function HotelsPage({ currentUser, travelers }) {
 
       <button className="add-btn" onClick={openNew}><i className="ti ti-plus" /> Add hotel</button>
 
-      {/* Hotel detail panel */}
+      {/* ── Hotel detail panel ── */}
       {selectedHotel && (() => {
         const hotelGuests = guestMap[selectedHotel.id] ?? []
         const guestCount = hotelGuests.length
         const booker = travelers.find(t => t.id === selectedHotel.booked_by)
+        const isOwner = selectedHotel.booked_by === currentUser.id
         return (
           <div className="panel-overlay" onClick={() => setSelectedHotel(null)}>
             <div style={{ flex: 1 }} />
@@ -204,6 +275,7 @@ export default function HotelsPage({ currentUser, travelers }) {
                 <button className="slide-panel-close" onClick={() => setSelectedHotel(null)}><i className="ti ti-x" /></button>
               </div>
 
+              {/* Cost summary */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
                 <div>
                   <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Check-in</div>
@@ -229,6 +301,16 @@ export default function HotelsPage({ currentUser, travelers }) {
               <DetailRow label="Booked by" value={booker?.name} />
               <DetailRow label="Notes" value={selectedHotel.notes} />
 
+              {/* Group expense sync indicator */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: selectedHotel.group_expense_id ? '#E8F5EA' : '#FFF8D6', borderRadius: 8, padding: '7px 10px', marginBottom: 12 }}>
+                <i className={`ti ${selectedHotel.group_expense_id ? 'ti-circle-check' : 'ti-alert-triangle'}`}
+                  style={{ fontSize: 13, color: selectedHotel.group_expense_id ? 'var(--green)' : '#B8920A' }} />
+                <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 11, fontWeight: 700, color: selectedHotel.group_expense_id ? 'var(--green)' : '#B8920A' }}>
+                  {selectedHotel.group_expense_id ? 'Synced to Group expenses & Balances' : 'Not yet synced to Group expenses'}
+                </span>
+              </div>
+
+              {/* Guests */}
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-300)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>Guests staying</div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -244,15 +326,27 @@ export default function HotelsPage({ currentUser, travelers }) {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="add-btn" style={{ flex: 1 }} onClick={() => openEdit(selectedHotel)}>
-                  <i className="ti ti-edit" /> Edit
-                </button>
-                <button onClick={() => deleteHotel(selectedHotel.id)} style={{ padding: '14px 16px', background: 'var(--red-light)', color: 'var(--red-err)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontWeight: 700 }}>
-                  <i className="ti ti-trash" />
-                </button>
-              </div>
-              <button onClick={() => setSelectedHotel(null)} style={{ marginTop: 10, width: '100%', padding: '13px', background: 'var(--warm-100)', color: 'var(--warm-800)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>
+              {/* Edit/Delete — only for the person who booked it */}
+              {isOwner ? (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="add-btn" style={{ flex: 1 }} onClick={() => openEdit(selectedHotel)}>
+                    <i className="ti ti-edit" /> Edit
+                  </button>
+                  <button onClick={() => deleteHotel(selectedHotel.id)}
+                    style={{ padding: '14px 16px', background: 'var(--red-light)', color: 'var(--red-err)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontWeight: 700 }}>
+                    <i className="ti ti-trash" />
+                  </button>
+                </div>
+              ) : (
+                <div style={{ background: 'var(--warm-100)', borderRadius: 10, padding: '10px 12px', marginBottom: 4 }}>
+                  <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 12, color: 'var(--warm-500)', textAlign: 'center' }}>
+                    Only {booker?.name?.split(' ')[0] ?? 'the booker'} can edit this hotel.
+                  </div>
+                </div>
+              )}
+
+              <button onClick={() => setSelectedHotel(null)}
+                style={{ marginTop: 10, width: '100%', padding: '13px', background: 'var(--warm-100)', color: 'var(--warm-800)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>
                 Close
               </button>
             </div>
@@ -260,7 +354,7 @@ export default function HotelsPage({ currentUser, travelers }) {
         )
       })()}
 
-      {/* Add / Edit hotel form */}
+      {/* ── Add / Edit hotel form ── */}
       {showForm && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'rgba(61,46,30,0.45)' }}
           onClick={e => e.target === e.currentTarget && setShowForm(false)}>
@@ -322,8 +416,11 @@ export default function HotelsPage({ currentUser, travelers }) {
               </div>
             </div>
 
+            {/* Guests */}
             <div style={{ background: 'var(--warm-100)', borderRadius: 10, padding: 10, marginBottom: 10 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--warm-500)', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>Guests staying</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--warm-500)', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>
+                Guests staying · split equally
+              </div>
               <div className="traveler-grid">
                 {travelers.map(t => (
                   <button key={t.id} className={`tv-btn ${guests.includes(t.id) ? 'selected' : ''}`} onClick={() => toggleGuest(t.id)}>
@@ -343,7 +440,14 @@ export default function HotelsPage({ currentUser, travelers }) {
               <input className="form-input" placeholder="Breakfast included, parking, WiFi..." value={form.notes} onChange={set('notes')} />
             </div>
 
-            {/* Error message */}
+            {/* Info note about auto-sync */}
+            <div style={{ background: '#E8F5EA', border: '1px solid #B8E0C0', borderRadius: 10, padding: '9px 12px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <i className="ti ti-info-circle" style={{ fontSize: 14, color: 'var(--green)', flexShrink: 0 }} />
+              <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 11, color: '#1B7A4A', fontWeight: 600 }}>
+                Hotel cost will be automatically logged to Group expenses and Balances.
+              </div>
+            </div>
+
             {saveError && (
               <div style={{ background: 'var(--red-light)', border: '1px solid var(--red-err)', borderRadius: 10, padding: '10px 12px', marginBottom: 10, fontFamily: 'Syne, sans-serif', fontSize: 13, color: 'var(--red-err)', fontWeight: 600 }}>
                 {saveError}
@@ -351,7 +455,8 @@ export default function HotelsPage({ currentUser, travelers }) {
             )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <button onClick={() => setShowForm(false)} style={{ padding: '14px', background: 'var(--warm-100)', color: 'var(--warm-800)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>
+              <button onClick={() => setShowForm(false)}
+                style={{ padding: '14px', background: 'var(--warm-100)', color: 'var(--warm-800)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>
                 Cancel
               </button>
               <button className="kp-submit" style={{ margin: 0 }} onClick={save} disabled={saving}>
