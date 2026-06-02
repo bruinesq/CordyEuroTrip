@@ -162,6 +162,7 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
             const myPart = parts.find(p => p.traveler_id === currentUser?.id)
             const pc = TRAVELER_COLORS[payer?.name] ?? { bg: '#FFE8E8', text: '#990000' }
             const converted = e.original_currency && e.original_currency !== 'USD'
+            const isHotel = !!e.hotel_id
             return (
               <div key={e.id} className="row">
                 <div className="row-left">
@@ -169,7 +170,14 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
                     <i className={`ti ${icon}`} style={{ color: cc.icon }} />
                   </div>
                   <div style={{ minWidth: 0 }}>
-                    <div className="fs13 fw6 truncate syne">{e.description}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <div className="fs13 fw6 truncate syne">{e.description}</div>
+                      {isHotel && (
+                        <span style={{ fontSize: 9, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--cardinal)', background: 'var(--cardinal-light)', borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>
+                          HOTEL
+                        </span>
+                      )}
+                    </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
                       <div className="avatar avatar-sm" style={{ background: pc.bg, color: pc.text }}>{initials(payer?.name)}</div>
                       <span className="mono" style={{ fontSize: 11, color: 'var(--warm-500)' }}>{e.expense_date} · {count} ppl</span>
@@ -185,13 +193,22 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
                   <div className="fw6 fs13 mono">{fmtUSD(e.amount_usd)}</div>
                   {myPart && <div className="mono" style={{ fontSize: 10, color: 'var(--cardinal)' }}>my: {fmtUSD(myPart.share_usd)}</div>}
                 </div>
-                <div style={{ display: 'flex', gap: 4, marginLeft: 4 }}>
-                  <button className="icon-action" onClick={() => openEdit(e)}>
-                    <i className="ti ti-edit" style={{ fontSize: 13 }} />
-                  </button>
-                  <button className="icon-action" onClick={() => deleteExpense(e.id)}>
-                    <i className="ti ti-trash" style={{ fontSize: 13, color: 'var(--red-err)' }} />
-                  </button>
+                <div style={{ display: 'flex', gap: 4, marginLeft: 4, flexShrink: 0 }}>
+                  {isHotel ? (
+                    // Hotel-linked expenses are managed from the Hotels tab
+                    <span style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-400)', padding: '4px 6px', background: 'var(--warm-100)', borderRadius: 6, alignSelf: 'center' }}>
+                      via Hotels
+                    </span>
+                  ) : (
+                    <>
+                      <button className="icon-action" onClick={() => openEdit(e)}>
+                        <i className="ti ti-edit" style={{ fontSize: 13 }} />
+                      </button>
+                      <button className="icon-action" onClick={() => deleteExpense(e.id)}>
+                        <i className="ti ti-trash" style={{ fontSize: 13, color: 'var(--red-err)' }} />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             )
