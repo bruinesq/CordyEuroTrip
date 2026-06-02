@@ -82,12 +82,14 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
 
   function openEdit(e) {
     setEditEntry(e)
+    const currentParticipants = (participants[e.id] ?? []).map(p => p.traveler_id)
     setEditForm({
       description: e.description ?? '',
       original_amount: e.original_amount ?? e.amount_usd ?? '',
       original_currency: e.original_currency ?? 'USD',
       expense_date: e.expense_date ?? '',
       category: categories[e.category_id] ?? 'Meals',
+      participants: currentParticipants.length > 0 ? currentParticipants : travelers.map(t => t.id),
     })
   }
 
@@ -106,6 +108,14 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
       expense_date: editForm.expense_date,
       category_id: cat?.id ?? 2,
     }).eq('id', editEntry.id)
+    // Rebuild participants
+    if (editForm.participants?.length > 0) {
+      await supabase.from('group_expense_participants').delete().eq('expense_id', editEntry.id)
+      const share = parseFloat((usd / editForm.participants.length).toFixed(2))
+      await supabase.from('group_expense_participants').insert(
+        editForm.participants.map(tid => ({ expense_id: editEntry.id, traveler_id: tid, share_usd: share }))
+      )
+    }
     await load()
     setSaving(false)
     setEditEntry(null)
@@ -227,51 +237,102 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
       )}
 
       {editEntry && (
-        <div className="sheet-overlay" onClick={e => e.target === e.currentTarget && setEditEntry(null)}>
-          <div className="sheet">
-            <div className="sheet-handle" />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 800 }}>Edit expense</div>
-              <button onClick={() => setEditEntry(null)} className="slide-panel-close"><i className="ti ti-x" /></button>
-            </div>
-
-            <div className="form-field">
-              <label className="form-label">Description</label>
-              <input className="form-input" value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8, marginBottom: 10 }}>
-              <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">Amount</label>
-                <input className="form-input mono" type="number" value={editForm.original_amount} onChange={e => setEditForm(f => ({ ...f, original_amount: e.target.value }))} />
+        <div style={{ position: 'fixed', inset: 0, zIndex: 900, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }}
+          onClick={e => e.target === e.currentTarget && setEditEntry(null)}>
+          <div style={{ background: '#0d2b1f', borderRadius: 16, boxShadow: '0 8px 40px rgba(0,0,0,0.55)', width: 'min(96vw,420px)', maxHeight: '88vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch', zIndex: 910 }}>
+            <div style={{ width: 32, height: 3, background: 'rgba(255,255,255,.2)', borderRadius: 99, margin: '14px auto 0' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px 0' }}>
+              <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 13, fontWeight: 800, color: '#e8c84a', textTransform: 'uppercase', letterSpacing: '.08em' }}>
+                Edit expense
               </div>
-              <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">Currency</label>
-                <select className="form-select mono" value={editForm.original_currency} onChange={e => setEditForm(f => ({ ...f, original_currency: e.target.value }))}>
-                  {CURRENCIES.map(c => <option key={c}>{c}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <div className="form-field">
-              <label className="form-label">Date</label>
-              <input className="form-input mono" type="date" value={editForm.expense_date} onChange={e => setEditForm(f => ({ ...f, expense_date: e.target.value }))} />
-            </div>
-
-            <div className="form-field">
-              <label className="form-label">Category</label>
-              <select className="form-select" value={editForm.category} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}>
-                {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-              </select>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <button onClick={() => setEditEntry(null)} style={{ padding: '14px', background: 'var(--warm-100)', color: 'var(--warm-800)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>
+              <button onClick={() => setEditEntry(null)} style={{ background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.2)', borderRadius: 99, padding: '5px 14px', fontFamily: 'Syne, sans-serif', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,.75)', cursor: 'pointer' }}>
                 Cancel
               </button>
-              <button className="kp-submit" style={{ margin: 0 }} onClick={saveEdit} disabled={saving}>
-                {saving ? 'Saving...' : 'Save changes'}
-              </button>
+            </div>
+
+            <div style={{ padding: '12px 16px 20px' }}>
+              {/* Description */}
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.75)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>Description</div>
+                <input style={{ background: '#1e4a34', border: '1.5px solid rgba(255,255,255,.25)', borderRadius: 10, padding: '11px 13px', fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 600, color: '#fff', outline: 'none', width: '100%' }}
+                  value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
+                  onFocus={e => e.target.style.borderColor='#e8c84a'} onBlur={e => e.target.style.borderColor='rgba(255,255,255,.25)'} />
+              </div>
+
+              {/* Amount + Currency */}
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8, marginBottom: 8 }}>
+                <div>
+                  <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.75)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>Amount</div>
+                  <input type="number" style={{ background: '#1e4a34', border: '1.5px solid rgba(255,255,255,.25)', borderRadius: 10, padding: '11px 13px', fontFamily: 'IBM Plex Mono, monospace', fontSize: 14, color: '#f0e080', outline: 'none', width: '100%' }}
+                    value={editForm.original_amount} onChange={e => setEditForm(f => ({ ...f, original_amount: e.target.value }))}
+                    onFocus={e => e.target.style.borderColor='#e8c84a'} onBlur={e => e.target.style.borderColor='rgba(255,255,255,.25)'} />
+                </div>
+                <div>
+                  <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.75)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>Currency</div>
+                  <select style={{ background: '#1e4a34', border: '1.5px solid rgba(255,255,255,.25)', borderRadius: 10, padding: '11px 8px', fontFamily: 'IBM Plex Mono, monospace', fontSize: 13, color: '#fff', outline: 'none', width: '100%', appearance: 'none' }}
+                    value={editForm.original_currency} onChange={e => setEditForm(f => ({ ...f, original_currency: e.target.value }))}
+                    onFocus={e => e.target.style.borderColor='#e8c84a'} onBlur={e => e.target.style.borderColor='rgba(255,255,255,.25)'}>
+                    {CURRENCIES.map(c => <option key={c} style={{ background: '#1e4a34' }}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Date + Category */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                <div>
+                  <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.75)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>Date</div>
+                  <input type="date" style={{ background: '#1e4a34', border: '1.5px solid rgba(255,255,255,.25)', borderRadius: 10, padding: '11px 8px', fontFamily: 'IBM Plex Mono, monospace', fontSize: 12, color: '#fff', outline: 'none', width: '100%' }}
+                    value={editForm.expense_date} onChange={e => setEditForm(f => ({ ...f, expense_date: e.target.value }))}
+                    onFocus={e => e.target.style.borderColor='#e8c84a'} onBlur={e => e.target.style.borderColor='rgba(255,255,255,.25)'} />
+                </div>
+                <div>
+                  <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.75)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>Category</div>
+                  <select style={{ background: '#1e4a34', border: '1.5px solid rgba(255,255,255,.25)', borderRadius: 10, padding: '11px 8px', fontFamily: 'Syne, sans-serif', fontSize: 12, fontWeight: 600, color: '#fff', outline: 'none', width: '100%', appearance: 'none' }}
+                    value={editForm.category} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}
+                    onFocus={e => e.target.style.borderColor='#e8c84a'} onBlur={e => e.target.style.borderColor='rgba(255,255,255,.25)'}>
+                    {CATEGORIES.map(c => <option key={c} style={{ background: '#1e4a34' }}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Participants */}
+              <div style={{ background: '#1e4a34', border: '1.5px solid rgba(255,255,255,.25)', borderRadius: 10, padding: 10, marginBottom: 14 }}>
+                <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.75)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>
+                  Split with
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 5 }}>
+                  {travelers.map(t => {
+                    const sel = editForm.participants?.includes(t.id) ?? false
+                    return (
+                      <button key={t.id}
+                        onClick={() => setEditForm(f => ({
+                          ...f,
+                          participants: sel
+                            ? (f.participants ?? []).filter(id => id !== t.id)
+                            : [...(f.participants ?? []), t.id]
+                        }))}
+                        style={{ padding: '6px 3px', borderRadius: 8, border: sel ? 'none' : '1px solid rgba(255,255,255,.5)', fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, background: sel ? '#e8c84a' : 'transparent', color: sel ? '#0d2b1f' : 'rgba(255,255,255,.85)', cursor: 'pointer' }}>
+                        {t.name.split(' ')[0]}
+                      </button>
+                    )
+                  })}
+                </div>
+                {editForm.participants?.length > 0 && editForm.original_amount > 0 && (
+                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: '#f0e080', marginTop: 8, textAlign: 'right', fontWeight: 700 }}>
+                    ${(parseFloat(editForm.original_amount) / editForm.participants.length).toFixed(2)} each · {editForm.participants.length} people
+                  </div>
+                )}
+              </div>
+
+              {/* Buttons */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setEditEntry(null)} style={{ flex: 1, height: 50, borderRadius: 12, border: 'none', background: 'rgba(255,255,255,.1)', color: 'rgba(255,255,255,.75)', fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+                  Cancel
+                </button>
+                <button onClick={saveEdit} disabled={saving} style={{ flex: 2, height: 50, borderRadius: 12, border: 'none', background: saving ? 'rgba(232,200,74,0.25)' : '#e8c84a', color: saving ? 'rgba(255,255,255,.35)' : '#0d2b1f', fontFamily: 'Syne, sans-serif', fontSize: 15, fontWeight: 800, cursor: saving ? 'default' : 'pointer' }}>
+                  {saving ? 'Saving…' : 'Save changes'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
