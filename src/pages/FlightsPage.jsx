@@ -6,7 +6,59 @@ const STATUS = {
   pending:   { bg: '#FFF8D6', text: '#B8920A', label: 'Pending' },
 }
 
-// Inline PIN pad used to unlock Notes in the flight panel
+// ── Shared dark-green form styles ────────────────────────────────────────────
+const KP = {
+  overlay: {
+    position: 'fixed', inset: 0, zIndex: 900,
+    background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12,
+  },
+  card: {
+    background: '#0d2b1f', borderRadius: 16,
+    boxShadow: '0 8px 40px rgba(0,0,0,0.55)',
+    width: 'min(96vw, 420px)', maxHeight: '92vh',
+    overflowY: 'auto', WebkitOverflowScrolling: 'touch', zIndex: 910,
+  },
+  field: {
+    background: '#1e4a34', border: '1.5px solid rgba(255,255,255,.25)',
+    borderRadius: 10, padding: '11px 13px',
+    fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 600,
+    color: '#ffffff', outline: 'none', width: '100%',
+  },
+  select: {
+    background: '#1e4a34', border: '1.5px solid rgba(255,255,255,.25)',
+    borderRadius: 10, padding: '11px 10px',
+    fontFamily: 'Syne, sans-serif', fontSize: 13, fontWeight: 600,
+    color: '#ffffff', outline: 'none', width: '100%', appearance: 'none',
+  },
+  label: {
+    fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700,
+    color: 'rgba(255,255,255,.75)', textTransform: 'uppercase',
+    letterSpacing: '.05em', display: 'block', marginBottom: 5,
+  },
+  sectionLabel: {
+    fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700,
+    color: 'rgba(255,255,255,.6)', textTransform: 'uppercase',
+    letterSpacing: '.05em', marginBottom: 6,
+  },
+  saveBtn: (enabled) => ({
+    width: '100%', height: 50, borderRadius: 12, border: 'none',
+    background: enabled ? '#e8c84a' : 'rgba(232,200,74,0.25)',
+    color: enabled ? '#0d2b1f' : 'rgba(255,255,255,.35)',
+    fontFamily: 'Syne, sans-serif', fontSize: 15, fontWeight: 800,
+    letterSpacing: '.03em', cursor: enabled ? 'pointer' : 'default',
+  }),
+  cancelBtn: {
+    flex: 1, height: 50, borderRadius: 12, border: 'none',
+    background: 'rgba(255,255,255,.1)', color: 'rgba(255,255,255,.75)',
+    fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+  },
+}
+
+function focusGold(e) { e.target.style.borderColor = '#e8c84a' }
+function blurGray(e)  { e.target.style.borderColor = 'rgba(255,255,255,.25)' }
+
+// ── Inline PIN prompt for Notes ──────────────────────────────────────────────
 function PinPrompt({ onVerify, onCancel, travelerId, travelers }) {
   const [buf, setBuf] = useState('')
   const [error, setError] = useState('')
@@ -17,92 +69,48 @@ function PinPrompt({ onVerify, onCancel, travelerId, travelers }) {
     if (buf.length >= 4) return
     const next = buf + v
     setBuf(next)
-    if (next.length === 4) {
-      setTimeout(() => attempt(next), 150)
-    }
+    if (next.length === 4) setTimeout(() => attempt(next), 150)
   }
 
   async function attempt(pin) {
     setChecking(true)
-    // Master PIN unlocks silently
-    if (pin === MASTER_PIN) {
-      onVerify(true)
-      return
-    }
-    // Look up this traveler's pin_hash
+    if (pin === MASTER_PIN) { onVerify(true); return }
     const { data } = await supabase.from('travelers').select('pin_hash').eq('id', travelerId).single()
     const ok = await verifyPin(pin, data?.pin_hash ?? '')
-    if (ok) {
-      onVerify(false)
-    } else {
-      setError('Incorrect PIN. Try again.')
-      setBuf('')
-    }
+    if (ok) { onVerify(false) }
+    else { setError('Incorrect PIN. Try again.'); setBuf('') }
     setChecking(false)
   }
 
-  // Find traveler first name for display
   const traveler = travelers?.find(t => t.id === travelerId)
   const firstName = traveler?.name?.split(' ')[0] ?? 'this traveler'
 
   return (
-    <div style={{
-      background: 'var(--warm-50, #FDFAF6)',
-      border: '1px solid var(--warm-200)',
-      borderRadius: 14,
-      padding: '16px',
-      marginTop: 8,
-    }}>
+    <div style={{ background: 'var(--warm-50,#FDFAF6)', border: '1px solid var(--warm-200)', borderRadius: 14, padding: 16, marginTop: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <i className="ti ti-lock" style={{ fontSize: 16, color: 'var(--cardinal)' }} />
         <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 13, fontWeight: 700 }}>
           Enter {firstName}'s PIN to view notes
         </div>
       </div>
-      {error && (
-        <div style={{ color: 'var(--red-err)', fontSize: 12, fontFamily: 'Syne, sans-serif', marginBottom: 8 }}>
-          {error}
-        </div>
-      )}
-      {/* PIN dots */}
+      {error && <div style={{ color: 'var(--red-err)', fontSize: 12, fontFamily: 'Syne, sans-serif', marginBottom: 8 }}>{error}</div>}
       <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 12 }}>
         {[0,1,2,3].map(i => (
-          <div key={i} style={{
-            width: 12, height: 12, borderRadius: '50%',
-            background: i < buf.length ? 'var(--cardinal)' : 'var(--warm-200)',
-            transition: 'background 0.15s',
-          }} />
+          <div key={i} style={{ width: 12, height: 12, borderRadius: '50%', background: i < buf.length ? 'var(--cardinal)' : 'var(--warm-200)', transition: 'background 0.15s' }} />
         ))}
       </div>
-      {/* Numpad */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginBottom: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6, marginBottom: 10 }}>
         {[1,2,3,4,5,6,7,8,9].map(n => (
-          <button key={n}
-            onClick={() => handleKey(String(n))}
-            disabled={checking}
-            style={{
-              padding: '11px 0', fontSize: 18, fontFamily: 'Syne, sans-serif', fontWeight: 700,
-              background: 'var(--warm-100)', border: 'none', borderRadius: 10, cursor: 'pointer',
-            }}
-          >{n}</button>
+          <button key={n} onClick={() => handleKey(String(n))} disabled={checking}
+            style={{ padding: '11px 0', fontSize: 18, fontFamily: 'Syne, sans-serif', fontWeight: 700, background: 'var(--warm-100)', border: 'none', borderRadius: 10, cursor: 'pointer' }}>{n}</button>
         ))}
-        <button onClick={() => setBuf('')} disabled={checking}
-          style={{ padding: '11px 0', fontSize: 11, fontFamily: 'Syne, sans-serif', fontWeight: 700, background: 'var(--warm-100)', border: 'none', borderRadius: 10, cursor: 'pointer' }}>
-          Clear
-        </button>
-        <button onClick={() => handleKey('0')} disabled={checking}
-          style={{ padding: '11px 0', fontSize: 18, fontFamily: 'Syne, sans-serif', fontWeight: 700, background: 'var(--warm-100)', border: 'none', borderRadius: 10, cursor: 'pointer' }}>
-          0
-        </button>
-        <button onClick={() => handleKey('del')} disabled={checking}
-          style={{ padding: '11px 0', background: 'var(--warm-100)', border: 'none', borderRadius: 10, cursor: 'pointer' }}>
+        <button onClick={() => setBuf('')} disabled={checking} style={{ padding: '11px 0', fontSize: 11, fontFamily: 'Syne, sans-serif', fontWeight: 700, background: 'var(--warm-100)', border: 'none', borderRadius: 10, cursor: 'pointer' }}>Clear</button>
+        <button onClick={() => handleKey('0')} disabled={checking} style={{ padding: '11px 0', fontSize: 18, fontFamily: 'Syne, sans-serif', fontWeight: 700, background: 'var(--warm-100)', border: 'none', borderRadius: 10, cursor: 'pointer' }}>0</button>
+        <button onClick={() => handleKey('del')} disabled={checking} style={{ padding: '11px 0', background: 'var(--warm-100)', border: 'none', borderRadius: 10, cursor: 'pointer' }}>
           <i className="ti ti-backspace" style={{ fontSize: 18 }} />
         </button>
       </div>
-      <button onClick={onCancel}
-        style={{ width: '100%', padding: '10px', background: 'none', border: 'none', fontFamily: 'Syne, sans-serif', fontSize: 13, color: 'var(--warm-500)', cursor: 'pointer' }}>
-        Cancel
-      </button>
+      <button onClick={onCancel} style={{ width: '100%', padding: '10px', background: 'none', border: 'none', fontFamily: 'Syne, sans-serif', fontSize: 13, color: 'var(--warm-500)', cursor: 'pointer' }}>Cancel</button>
     </div>
   )
 }
@@ -116,9 +124,7 @@ export default function FlightsPage({ currentUser, travelers, isPinUnlocked, onP
   const [selectedTraveler, setSelectedTraveler] = useState(null)
   const [editFlight, setEditFlight] = useState(null)
   const [saving, setSaving] = useState(false)
-
-  // Per-flight notes reveal state (which flight IDs are showing the PIN prompt)
-  const [showingPinFor, setShowingPinFor] = useState(null) // flight id
+  const [showingPinFor, setShowingPinFor] = useState(null)
 
   const empty = {
     origin: '', destination: '', flight_number: '', airline: '',
@@ -139,27 +145,13 @@ export default function FlightsPage({ currentUser, travelers, isPinUnlocked, onP
   async function loadPanelFlights(travelerId) {
     setPanelLoading(true)
     setPanelFlights([])
-    const { data, error } = await supabase
-      .from('flights')
-      .select('*')
-      .eq('traveler_id', travelerId)
-      .order('departure_date', { ascending: true })
-    console.log('panel flights', travelerId, data, error)
+    const { data } = await supabase.from('flights').select('*').eq('traveler_id', travelerId).order('departure_date', { ascending: true })
     setPanelFlights(data ?? [])
     setPanelLoading(false)
   }
 
-  async function openPanel(traveler) {
-    setSelectedTraveler(traveler)
-    setShowingPinFor(null)
-    await loadPanelFlights(traveler.id)
-  }
-
-  function closePanel() {
-    setSelectedTraveler(null)
-    setPanelFlights([])
-    setShowingPinFor(null)
-  }
+  async function openPanel(traveler) { setSelectedTraveler(traveler); setShowingPinFor(null); await loadPanelFlights(traveler.id) }
+  function closePanel() { setSelectedTraveler(null); setPanelFlights([]); setShowingPinFor(null) }
 
   function travelerSummary(tid) {
     const tfl = flights.filter(f => f.traveler_id === tid)
@@ -167,25 +159,18 @@ export default function FlightsPage({ currentUser, travelers, isPinUnlocked, onP
   }
 
   function set(field) { return e => setForm(p => ({ ...p, [field]: e.target.value })) }
-
   function openAdd() { setEditFlight(null); setForm(empty); setShowForm(true) }
 
   function openEdit(fl) {
     setEditFlight(fl)
     setForm({
-      origin: fl.origin ?? '',
-      destination: fl.destination ?? '',
-      flight_number: fl.flight_number ?? '',
-      airline: fl.airline ?? '',
-      departure_date: fl.departure_date ?? '',
-      departure_time: fl.departure_time ?? '',
-      arrival_date: fl.arrival_date ?? '',
-      arrival_time: fl.arrival_time ?? '',
-      status: fl.status ?? 'confirmed',
-      notes: fl.notes ?? ''
+      origin: fl.origin ?? '', destination: fl.destination ?? '',
+      flight_number: fl.flight_number ?? '', airline: fl.airline ?? '',
+      departure_date: fl.departure_date ?? '', departure_time: fl.departure_time ?? '',
+      arrival_date: fl.arrival_date ?? '', arrival_time: fl.arrival_time ?? '',
+      status: fl.status ?? 'confirmed', notes: fl.notes ?? ''
     })
-    closePanel()
-    setShowForm(true)
+    closePanel(); setShowForm(true)
   }
 
   async function save() {
@@ -196,9 +181,7 @@ export default function FlightsPage({ currentUser, travelers, isPinUnlocked, onP
     } else {
       await supabase.from('flights').insert({ ...form, traveler_id: currentUser.id })
     }
-    await load()
-    setSaving(false)
-    setShowForm(false)
+    await load(); setSaving(false); setShowForm(false)
     if (selectedTraveler) await loadPanelFlights(selectedTraveler.id)
   }
 
@@ -211,10 +194,8 @@ export default function FlightsPage({ currentUser, travelers, isPinUnlocked, onP
 
   function formatDate(dateStr) {
     if (!dateStr) return null
-    try {
-      const d = new Date(dateStr + 'T00:00:00')
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    } catch { return dateStr }
+    try { return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }
+    catch { return dateStr }
   }
 
   function InfoRow({ label, value }) {
@@ -227,14 +208,11 @@ export default function FlightsPage({ currentUser, travelers, isPinUnlocked, onP
     )
   }
 
-  // Notes section — locked behind PIN for all viewers
   function NotesSection({ fl }) {
     const travelerId = fl.traveler_id
     const unlocked = isPinUnlocked ? isPinUnlocked(travelerId) : false
     const hasPinPromptOpen = showingPinFor === fl.id
-
     if (!fl.notes) return null
-
     if (unlocked) {
       return (
         <div style={{ borderTop: '1px solid var(--warm-100)', paddingTop: 8, marginTop: 8 }}>
@@ -246,35 +224,18 @@ export default function FlightsPage({ currentUser, travelers, isPinUnlocked, onP
         </div>
       )
     }
-
     if (hasPinPromptOpen) {
       return (
-        <PinPrompt
-          travelerId={travelerId}
-          travelers={travelers}
-          onVerify={(usedMaster) => {
-            if (onPinUnlocked) onPinUnlocked(travelerId, usedMaster)
-            setShowingPinFor(null)
-          }}
-          onCancel={() => setShowingPinFor(null)}
-        />
+        <PinPrompt travelerId={travelerId} travelers={travelers}
+          onVerify={(usedMaster) => { if (onPinUnlocked) onPinUnlocked(travelerId, usedMaster); setShowingPinFor(null) }}
+          onCancel={() => setShowingPinFor(null)} />
       )
     }
-
     return (
       <div style={{ borderTop: '1px solid var(--warm-100)', paddingTop: 8, marginTop: 8 }}>
-        <button
-          onClick={() => setShowingPinFor(fl.id)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            background: 'var(--warm-100)', border: 'none', borderRadius: 10,
-            padding: '8px 12px', width: '100%', cursor: 'pointer',
-          }}
-        >
+        <button onClick={() => setShowingPinFor(fl.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--warm-100)', border: 'none', borderRadius: 10, padding: '8px 12px', width: '100%', cursor: 'pointer' }}>
           <i className="ti ti-lock" style={{ fontSize: 14, color: 'var(--cardinal)' }} />
-          <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 12, fontWeight: 700, color: 'var(--warm-600)' }}>
-            Notes · Tap to unlock
-          </div>
+          <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 12, fontWeight: 700, color: 'var(--warm-600)' }}>Notes · Tap to unlock</div>
         </button>
       </div>
     )
@@ -301,10 +262,8 @@ export default function FlightsPage({ currentUser, travelers, isPinUnlocked, onP
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {sc
-                    ? <span className="badge" style={{ background: sc.bg, color: sc.text }}>{sc.label}</span>
-                    : <span className="badge" style={{ background: 'var(--warm-100)', color: 'var(--warm-300)' }}>Missing</span>
-                  }
+                  {sc ? <span className="badge" style={{ background: sc.bg, color: sc.text }}>{sc.label}</span>
+                      : <span className="badge" style={{ background: 'var(--warm-100)', color: 'var(--warm-300)' }}>Missing</span>}
                   <i className="ti ti-chevron-right" style={{ fontSize: 14, color: 'var(--warm-300)' }} />
                 </div>
               </div>
@@ -313,9 +272,7 @@ export default function FlightsPage({ currentUser, travelers, isPinUnlocked, onP
         </div>
       )}
 
-      <button className="add-btn" onClick={openAdd}>
-        <i className="ti ti-plus" /> Add my flight
-      </button>
+      <button className="add-btn" onClick={openAdd}><i className="ti ti-plus" /> Add my flight</button>
 
       {/* Flight detail panel */}
       {selectedTraveler && (
@@ -329,55 +286,41 @@ export default function FlightsPage({ currentUser, travelers, isPinUnlocked, onP
                   {panelLoading ? 'Loading...' : panelFlights.length + ' flight' + (panelFlights.length !== 1 ? 's' : '')}
                 </div>
               </div>
-              <button className="slide-panel-close" onClick={closePanel}>
-                <i className="ti ti-x" />
-              </button>
+              <button className="slide-panel-close" onClick={closePanel}><i className="ti ti-x" /></button>
             </div>
-
-            {panelLoading ? (
-              <div className="loading">Loading flights...</div>
-            ) : panelFlights.length === 0 ? (
-              <div className="empty"><i className="ti ti-plane" /><p>No flights entered yet</p></div>
-            ) : panelFlights.map(fl => {
-              const sc = STATUS[fl.status] ?? STATUS.pending
-              return (
-                <div key={fl.id} className="card" style={{ marginBottom: 12, flexShrink: 0 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                    <span className="badge" style={{ background: sc.bg, color: sc.text }}>{sc.label}</span>
-                    {selectedTraveler.id === currentUser.id && (
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button className="icon-action" onClick={() => openEdit(fl)}><i className="ti ti-edit" /></button>
-                        <button className="icon-action" onClick={() => deleteFlight(fl.id)}><i className="ti ti-trash" style={{ color: 'var(--red-err)' }} /></button>
-                      </div>
-                    )}
+            {panelLoading ? <div className="loading">Loading flights...</div>
+              : panelFlights.length === 0 ? <div className="empty"><i className="ti ti-plane" /><p>No flights entered yet</p></div>
+              : panelFlights.map(fl => {
+                const sc = STATUS[fl.status] ?? STATUS.pending
+                return (
+                  <div key={fl.id} className="card" style={{ marginBottom: 12, flexShrink: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                      <span className="badge" style={{ background: sc.bg, color: sc.text }}>{sc.label}</span>
+                      {selectedTraveler.id === currentUser.id && (
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button className="icon-action" onClick={() => openEdit(fl)}><i className="ti ti-edit" /></button>
+                          <button className="icon-action" onClick={() => deleteFlight(fl.id)}><i className="ti ti-trash" style={{ color: 'var(--red-err)' }} /></button>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--cardinal)', marginBottom: 10 }}>
+                      {fl.origin} → {fl.destination}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <InfoRow label="Airline" value={fl.airline} />
+                      <InfoRow label="Flight #" value={fl.flight_number} />
+                      <InfoRow label="Departs" value={fl.departure_date ? `${formatDate(fl.departure_date)}${fl.departure_time ? ' · ' + fl.departure_time : ''}` : null} />
+                      <InfoRow label="Arrives" value={(fl.arrival_date || fl.arrival_time) ? `${fl.arrival_date ? formatDate(fl.arrival_date) : ''}${fl.arrival_date && fl.arrival_time ? ' · ' : ''}${fl.arrival_time ?? ''}` : null} />
+                    </div>
+                    <NotesSection fl={fl} />
                   </div>
-
-                  <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 17, fontWeight: 800, color: 'var(--cardinal)', marginBottom: 10 }}>
-                    {fl.origin} → {fl.destination}
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    <InfoRow label="Airline" value={fl.airline} />
-                    <InfoRow label="Flight #" value={fl.flight_number} />
-                    <InfoRow label="Departs" value={fl.departure_date ? `${formatDate(fl.departure_date)}${fl.departure_time ? ' · ' + fl.departure_time : ''}` : null} />
-                    <InfoRow label="Arrives" value={
-                      (fl.arrival_date || fl.arrival_time)
-                        ? `${fl.arrival_date ? formatDate(fl.arrival_date) : ''}${fl.arrival_date && fl.arrival_time ? ' · ' : ''}${fl.arrival_time ?? ''}`
-                        : null
-                    } />
-                  </div>
-
-                  <NotesSection fl={fl} />
-                </div>
-              )
-            })}
-
+                )
+              })}
             {selectedTraveler.id === currentUser.id && (
               <button className="add-btn" style={{ flexShrink: 0, marginTop: 8 }} onClick={() => { closePanel(); openAdd() }}>
                 <i className="ti ti-plus" /> Add another flight
               </button>
             )}
-
             <button onClick={closePanel} style={{ marginTop: 10, width: '100%', padding: '13px', background: 'var(--warm-100)', color: 'var(--warm-800)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700, flexShrink: 0 }}>
               Close
             </button>
@@ -385,96 +328,107 @@ export default function FlightsPage({ currentUser, travelers, isPinUnlocked, onP
         </div>
       )}
 
-      {/* Add / Edit flight form */}
+      {/* ── Add / Edit flight — CareConnect centered dark-green card ── */}
       {showForm && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'rgba(61,46,30,0.45)' }}
-          onClick={e => e.target === e.currentTarget && setShowForm(false)}>
-          <div style={{ background: 'var(--cream)', borderRadius: '22px 22px 0 0', padding: '16px 16px', paddingBottom: 'calc(90px + env(safe-area-inset-bottom, 16px))', maxHeight: '92vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
-            <div style={{ width: 38, height: 4, background: 'var(--warm-200)', borderRadius: 2, margin: '0 auto 16px' }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 800 }}>{editFlight ? 'Edit flight' : 'Add flight'}</div>
-              <button onClick={() => setShowForm(false)} className="slide-panel-close"><i className="ti ti-x" /></button>
-            </div>
-
-            {/* Route */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
-              <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">From</label>
-                <input className="form-input mono" placeholder="LAX" value={form.origin} onChange={e => setForm(p => ({ ...p, origin: e.target.value.toUpperCase() }))} />
+        <div style={KP.overlay} onClick={e => e.target === e.currentTarget && setShowForm(false)}>
+          <div style={KP.card}>
+            {/* Handle */}
+            <div style={{ width: 32, height: 3, background: 'rgba(255,255,255,.2)', borderRadius: 99, margin: '14px auto 0' }} />
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px 0' }}>
+              <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 13, fontWeight: 800, color: '#e8c84a', textTransform: 'uppercase', letterSpacing: '.08em' }}>
+                {editFlight ? 'Edit flight' : 'Add flight'}
               </div>
-              <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">To</label>
-                <input className="form-input mono" placeholder="CDG" value={form.destination} onChange={e => setForm(p => ({ ...p, destination: e.target.value.toUpperCase() }))} />
-              </div>
-            </div>
-
-            {/* Airline + Flight # */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
-              <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">Airline</label>
-                <input className="form-input" placeholder="Air France" value={form.airline} onChange={set('airline')} />
-              </div>
-              <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">Flight no.</label>
-                <input className="form-input mono" placeholder="AF 65" value={form.flight_number} onChange={set('flight_number')} />
-              </div>
-            </div>
-
-            {/* Departure row */}
-            <div style={{ marginBottom: 6 }}>
-              <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-400)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>Departure</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                <div className="form-field" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Date</label>
-                  <input className="form-input mono" type="date" value={form.departure_date} onChange={set('departure_date')} />
-                </div>
-                <div className="form-field" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Time</label>
-                  <input className="form-input mono" type="time" value={form.departure_time} onChange={set('departure_time')} />
-                </div>
-              </div>
-            </div>
-
-            {/* Arrival row */}
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'var(--warm-400)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>Arrival</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                <div className="form-field" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Date</label>
-                  <input className="form-input mono" type="date" value={form.arrival_date} onChange={set('arrival_date')} />
-                </div>
-                <div className="form-field" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Time</label>
-                  <input className="form-input mono" type="time" value={form.arrival_time} onChange={set('arrival_time')} />
-                </div>
-              </div>
-            </div>
-
-            {/* Status */}
-            <div className="form-field">
-              <label className="form-label">Status</label>
-              <select className="form-select" value={form.status} onChange={set('status')}>
-                <option value="confirmed">Confirmed</option>
-                <option value="pending">Pending</option>
-              </select>
-            </div>
-
-            {/* Notes — always editable by owner, but locked for others when viewing */}
-            <div className="form-field">
-              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <i className="ti ti-lock" style={{ fontSize: 11, color: 'var(--cardinal)' }} />
-                Notes (private — PIN protected)
-              </label>
-              <input className="form-input" placeholder="Reservation #, seat, terminal..." value={form.notes} onChange={set('notes')} />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <button onClick={() => setShowForm(false)} style={{ padding: '14px', background: 'var(--warm-100)', color: 'var(--warm-800)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>
+              <button onClick={() => setShowForm(false)} style={{ background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.2)', borderRadius: 99, padding: '5px 14px', fontFamily: 'Syne, sans-serif', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,.75)', cursor: 'pointer' }}>
                 Cancel
               </button>
-              <button className="kp-submit" style={{ margin: 0 }} onClick={save} disabled={saving}>
-                {saving ? 'Saving...' : 'Save flight'}
-              </button>
+            </div>
+
+            <div style={{ padding: '12px 16px 20px' }}>
+              {/* Route */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                <div>
+                  <div style={KP.label}>From *</div>
+                  <input style={KP.field} placeholder="LAX" value={form.origin}
+                    onChange={e => setForm(p => ({ ...p, origin: e.target.value.toUpperCase() }))}
+                    onFocus={focusGold} onBlur={blurGray} />
+                </div>
+                <div>
+                  <div style={KP.label}>To *</div>
+                  <input style={KP.field} placeholder="CDG" value={form.destination}
+                    onChange={e => setForm(p => ({ ...p, destination: e.target.value.toUpperCase() }))}
+                    onFocus={focusGold} onBlur={blurGray} />
+                </div>
+              </div>
+
+              {/* Airline + Flight # */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                <div>
+                  <div style={KP.label}>Airline</div>
+                  <input style={KP.field} placeholder="Air France" value={form.airline} onChange={set('airline')} onFocus={focusGold} onBlur={blurGray} />
+                </div>
+                <div>
+                  <div style={KP.label}>Flight no.</div>
+                  <input style={{ ...KP.field, fontFamily: 'IBM Plex Mono, monospace' }} placeholder="AF 65" value={form.flight_number} onChange={set('flight_number')} onFocus={focusGold} onBlur={blurGray} />
+                </div>
+              </div>
+
+              {/* Departure */}
+              <div style={{ marginBottom: 8 }}>
+                <div style={KP.sectionLabel}>Departure</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div>
+                    <div style={KP.label}>Date *</div>
+                    <input type="date" style={{ ...KP.field, fontFamily: 'IBM Plex Mono, monospace', fontSize: 12 }} value={form.departure_date} onChange={set('departure_date')} onFocus={focusGold} onBlur={blurGray} />
+                  </div>
+                  <div>
+                    <div style={KP.label}>Time</div>
+                    <input type="time" style={{ ...KP.field, fontFamily: 'IBM Plex Mono, monospace', fontSize: 12 }} value={form.departure_time} onChange={set('departure_time')} onFocus={focusGold} onBlur={blurGray} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Arrival */}
+              <div style={{ marginBottom: 8 }}>
+                <div style={KP.sectionLabel}>Arrival</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div>
+                    <div style={KP.label}>Date</div>
+                    <input type="date" style={{ ...KP.field, fontFamily: 'IBM Plex Mono, monospace', fontSize: 12 }} value={form.arrival_date} onChange={set('arrival_date')} onFocus={focusGold} onBlur={blurGray} />
+                  </div>
+                  <div>
+                    <div style={KP.label}>Time</div>
+                    <input type="time" style={{ ...KP.field, fontFamily: 'IBM Plex Mono, monospace', fontSize: 12 }} value={form.arrival_time} onChange={set('arrival_time')} onFocus={focusGold} onBlur={blurGray} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Status */}
+              <div style={{ marginBottom: 8 }}>
+                <div style={KP.label}>Status</div>
+                <select style={KP.select} value={form.status} onChange={set('status')} onFocus={focusGold} onBlur={blurGray}>
+                  <option value="confirmed" style={{ background: '#1e4a34' }}>Confirmed</option>
+                  <option value="pending" style={{ background: '#1e4a34' }}>Pending</option>
+                </select>
+              </div>
+
+              {/* Notes */}
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ ...KP.label, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <i className="ti ti-lock" style={{ fontSize: 10, color: '#e8c84a' }} />
+                  Notes (private — PIN protected)
+                </div>
+                <input style={KP.field} placeholder="Reservation #, seat, terminal..." value={form.notes} onChange={set('notes')} onFocus={focusGold} onBlur={blurGray} />
+              </div>
+
+              {/* Buttons */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setShowForm(false)} style={KP.cancelBtn}>Cancel</button>
+                <button onClick={save} disabled={saving}
+                  style={{ ...KP.saveBtn(!saving), flex: 2 }}>
+                  {saving ? 'Saving…' : 'Save flight'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
