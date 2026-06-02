@@ -9,6 +9,7 @@ export default function HotelsPage({ currentUser, travelers }) {
   const [editHotel, setEditHotel] = useState(null)
   const [selectedHotel, setSelectedHotel] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const empty = { hotel_name:'', city:'', address:'', phone:'', confirmation_number:'', check_in:'', check_out:'', original_amount:'', original_currency:'USD', notes:'' }
   const [form, setForm] = useState(empty)
   const [guests, setGuests] = useState([])
@@ -36,6 +37,7 @@ export default function HotelsPage({ currentUser, travelers }) {
     setEditHotel(null)
     setForm(empty)
     setGuests(travelers.map(t => t.id))
+    setSaveError('')
     setShowForm(true)
   }
 
@@ -56,12 +58,18 @@ export default function HotelsPage({ currentUser, travelers }) {
     const hGuests = guestMap[h.id] ?? []
     setGuests(hGuests.map(t => t.id))
     setSelectedHotel(null)
+    setSaveError('')
     setShowForm(true)
   }
 
   async function save() {
-    if (!form.hotel_name || !form.check_in || !form.check_out || !form.original_amount) return
+    if (!form.hotel_name || !form.check_in || !form.check_out || !form.original_amount) {
+      setSaveError('Please fill in hotel name, check-in, check-out, and total cost.')
+      return
+    }
     setSaving(true)
+    setSaveError('')
+
     const rateInfo = await getExchangeRate(form.original_currency, 'USD')
     const usd = parseFloat((parseFloat(form.original_amount) * rateInfo.rate).toFixed(2))
     const payload = {
@@ -76,19 +84,42 @@ export default function HotelsPage({ currentUser, travelers }) {
       original_currency: form.original_currency,
       total_cost_usd: usd,
       exchange_rate: rateInfo.rate,
-      notes: form.notes
+      notes: form.notes,
     }
+
     let hotelId = editHotel?.id
+
     if (editHotel) {
-      await supabase.from('hotels').update(payload).eq('id', editHotel.id)
+      const { error } = await supabase.from('hotels').update(payload).eq('id', editHotel.id)
+      if (error) {
+        console.error('[Hotels] update error:', error)
+        setSaveError('Save failed: ' + (error.message ?? 'unknown error'))
+        setSaving(false)
+        return
+      }
       await supabase.from('hotel_guests').delete().eq('hotel_id', editHotel.id)
     } else {
-      const { data: h } = await supabase.from('hotels').insert({ ...payload, booked_by: currentUser.id }).select().single()
-      hotelId = h?.id
+      const { data: h, error } = await supabase
+        .from('hotels')
+        .insert({ ...payload, booked_by: currentUser.id })
+        .select()
+        .single()
+      if (error || !h) {
+        console.error('[Hotels] insert error:', error)
+        setSaveError('Save failed: ' + (error?.message ?? 'hotel could not be created'))
+        setSaving(false)
+        return
+      }
+      hotelId = h.id
     }
+
     if (hotelId && guests.length) {
-      await supabase.from('hotel_guests').insert(guests.map(tid => ({ hotel_id: hotelId, traveler_id: tid })))
+      const { error: guestError } = await supabase
+        .from('hotel_guests')
+        .insert(guests.map(tid => ({ hotel_id: hotelId, traveler_id: tid })))
+      if (guestError) console.error('[Hotels] guest insert error:', guestError)
     }
+
     await load()
     setSaving(false)
     setShowForm(false)
@@ -156,6 +187,7 @@ export default function HotelsPage({ currentUser, travelers }) {
 
       <button className="add-btn" onClick={openNew}><i className="ti ti-plus" /> Add hotel</button>
 
+      {/* Hotel detail panel */}
       {selectedHotel && (() => {
         const hotelGuests = guestMap[selectedHotel.id] ?? []
         const guestCount = hotelGuests.length
@@ -228,8 +260,10 @@ export default function HotelsPage({ currentUser, travelers }) {
         )
       })()}
 
+      {/* Add / Edit hotel form */}
       {showForm && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'rgba(61,46,30,0.45)' }} onClick={e => e.target === e.currentTarget && setShowForm(false)}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'rgba(61,46,30,0.45)' }}
+          onClick={e => e.target === e.currentTarget && setShowForm(false)}>
           <div style={{ background: 'var(--cream)', borderRadius: '22px 22px 0 0', padding: '16px 16px', paddingBottom: 'calc(90px + env(safe-area-inset-bottom, 16px))', maxHeight: '92vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
             <div style={{ width: 38, height: 4, background: 'var(--warm-200)', borderRadius: 2, margin: '0 auto 14px' }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
@@ -239,7 +273,7 @@ export default function HotelsPage({ currentUser, travelers }) {
 
             <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 8, marginBottom: 10 }}>
               <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">Hotel name</label>
+                <label className="form-label">Hotel name *</label>
                 <input className="form-input" placeholder="Hotel Artemide" value={form.hotel_name} onChange={set('hotel_name')} />
               </div>
               <div className="form-field" style={{ marginBottom: 0 }}>
@@ -266,18 +300,18 @@ export default function HotelsPage({ currentUser, travelers }) {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
               <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">Check-in</label>
+                <label className="form-label">Check-in *</label>
                 <input className="form-input mono" type="date" value={form.check_in} onChange={set('check_in')} />
               </div>
               <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">Check-out</label>
+                <label className="form-label">Check-out *</label>
                 <input className="form-input mono" type="date" value={form.check_out} onChange={set('check_out')} />
               </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8, marginBottom: 10 }}>
               <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">Total cost</label>
+                <label className="form-label">Total cost *</label>
                 <input className="form-input mono" type="number" placeholder="0.00" value={form.original_amount} onChange={set('original_amount')} />
               </div>
               <div className="form-field" style={{ marginBottom: 0 }}>
@@ -308,6 +342,13 @@ export default function HotelsPage({ currentUser, travelers }) {
               <label className="form-label">Notes</label>
               <input className="form-input" placeholder="Breakfast included, parking, WiFi..." value={form.notes} onChange={set('notes')} />
             </div>
+
+            {/* Error message */}
+            {saveError && (
+              <div style={{ background: 'var(--red-light)', border: '1px solid var(--red-err)', borderRadius: 10, padding: '10px 12px', marginBottom: 10, fontFamily: 'Syne, sans-serif', fontSize: 13, color: 'var(--red-err)', fontWeight: 600 }}>
+                {saveError}
+              </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <button onClick={() => setShowForm(false)} style={{ padding: '14px', background: 'var(--warm-100)', color: 'var(--warm-800)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>
