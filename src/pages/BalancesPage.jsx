@@ -69,11 +69,21 @@ export default function BalancesPage({ currentUser, travelers }) {
   const transfers = calcSettlements()
   const totalGroup = expenses.reduce((s, e) => s + (e.amount_usd ?? 0), 0)
 
+  // Total each traveler actually owes (their real share across all expenses)
+  const totalOwed = balances.reduce((s, b) => s + b.owed, 0)
+  const participantCount = balances.filter(b => b.owed > 0).length
+
   return (
     <>
       <div className="metrics">
-        <div className="metric"><div className="metric-label">Group total</div><div className="metric-value">{fmtUSD(totalGroup)}</div></div>
-        <div className="metric"><div className="metric-label">Per person</div><div className="metric-value">{fmtUSD(travelers.length > 0 ? totalGroup / travelers.length : 0)}</div></div>
+        <div className="metric">
+          <div className="metric-label">Group total</div>
+          <div className="metric-value">{fmtUSD(totalGroup)}</div>
+        </div>
+        <div className="metric">
+          <div className="metric-label">Active participants</div>
+          <div className="metric-value">{participantCount} travelers</div>
+        </div>
       </div>
 
       <div className="section-label">Settlement summary</div>
@@ -119,14 +129,18 @@ export default function BalancesPage({ currentUser, travelers }) {
                 <div className="avatar" style={{ background: c.bg, color: c.text }}>{initials(b.name)}</div>
                 <div>
                   <div className="fs13 fw6 syne">{b.name}</div>
-                  <div className="mono" style={{ fontSize: 11, color: 'var(--warm-500)', marginTop: 2 }}>Paid {fmtUSD(b.paid)} · owes {fmtUSD(b.owed)}</div>
+                  <div className="mono" style={{ fontSize: 11, color: 'var(--warm-500)', marginTop: 2 }}>
+                    Paid {fmtUSD(b.paid)} · owes {fmtUSD(b.owed)}
+                  </div>
                 </div>
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 <div className="fw6 fs13 mono" style={{ color: b.net >= 0 ? 'var(--green)' : 'var(--red-err)' }}>
                   {b.net >= 0 ? '+' : ''}{fmtUSD(b.net)}
                 </div>
-                <div className="mono" style={{ fontSize: 11, color: 'var(--warm-500)' }}>{b.net >= 0 ? 'is owed' : 'owes'}</div>
+                <div className="mono" style={{ fontSize: 11, color: 'var(--warm-500)' }}>
+                  {b.net >= 0 ? 'is owed' : 'owes'}
+                </div>
               </div>
             </div>
           )
