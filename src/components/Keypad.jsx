@@ -15,6 +15,7 @@ export default function Keypad({ onSave, onClose, travelers, currentUser, defaul
   const [loading, setLoading] = useState(false)
   const [rateInfo, setRateInfo] = useState({ rate: 1, source: 'same currency' })
   const [rateLoading, setRateLoading] = useState(false)
+  const [showValidation, setShowValidation] = useState(false)
   const descRef = useRef(null)
 
   useEffect(() => {
@@ -39,7 +40,11 @@ export default function Keypad({ onSave, onClose, travelers, currentUser, defaul
   }
 
   async function handleSave() {
-    if (!amount || !description.trim()) return
+    if (!amount || !description.trim()) {
+      setShowValidation(true)
+      if (descRef.current) descRef.current.focus()
+      return
+    }
     setLoading(true)
     await onSave({
       type, category,
@@ -122,11 +127,13 @@ export default function Keypad({ onSave, onClose, travelers, currentUser, defaul
             Log Expense
           </div>
           <button onClick={onClose} style={{
+            width: 32, height: 32, borderRadius: '50%',
             background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.2)',
-            borderRadius: 99, padding: '5px 14px',
-            fontFamily: 'Syne, sans-serif', fontSize: 12, fontWeight: 700,
-            color: 'rgba(255,255,255,.75)', cursor: 'pointer',
-          }}>Cancel</button>
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', color: 'rgba(255,255,255,.75)', fontSize: 16,
+          }}>
+            <i className="ti ti-x" />
+          </button>
         </div>
 
         <div style={{ padding: '10px 14px 16px' }}>
@@ -186,25 +193,40 @@ export default function Keypad({ onSave, onClose, travelers, currentUser, defaul
 
           {/* ── Description + Date ── */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 116px', gap: 7, marginBottom: 7 }}>
-            <input
-              ref={descRef}
-              placeholder="Description"
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              autoFocus
-              style={{ ...inputStyle, fontSize: 14 }}
-              onFocus={e => e.target.style.borderColor = '#e8c84a'}
-              onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,.25)'}
-            />
-            <input
-              type="date"
-              value={date}
-              onChange={e => setDate(e.target.value)}
-              style={{ ...inputStyle, fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, padding: '11px 7px' }}
-              onFocus={e => e.target.style.borderColor = '#e8c84a'}
-              onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,.25)'}
-            />
+            <div>
+              <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.75)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 4 }}>
+                Description *
+              </div>
+              <input
+                ref={descRef}
+                placeholder="What was this for?"
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                autoFocus
+                style={{ ...inputStyle, fontSize: 14, borderColor: !description.trim() && showValidation ? '#c0392b' : 'rgba(255,255,255,.25)' }}
+                onFocus={e => e.target.style.borderColor = '#e8c84a'}
+                onBlur={e => e.target.style.borderColor = !description.trim() && showValidation ? '#c0392b' : 'rgba(255,255,255,.25)'}
+              />
+            </div>
+            <div>
+              <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.75)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 4 }}>
+                Date
+              </div>
+              <input
+                type="date"
+                value={date}
+                onChange={e => setDate(e.target.value)}
+                style={{ ...inputStyle, fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, padding: '11px 7px' }}
+                onFocus={e => e.target.style.borderColor = '#e8c84a'}
+                onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,.25)'}
+              />
+            </div>
           </div>
+          {showValidation && !description.trim() && (
+            <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 11, color: '#fca5a5', fontWeight: 700, marginBottom: 6, marginTop: -4 }}>
+              ⚠️ Description is required
+            </div>
+          )}
 
           {/* ── Category + Type ── */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, marginBottom: 7 }}>
@@ -266,21 +288,21 @@ export default function Keypad({ onSave, onClose, travelers, currentUser, defaul
           {/* ── Save button ── */}
           <button
             onClick={handleSave}
-            disabled={!canSave || loading}
+            disabled={loading || rateLoading}
             style={{
               width: '100%', height: 50, borderRadius: 12, border: 'none',
-              background: canSave && !loading ? '#e8c84a' : 'rgba(232,200,74,0.25)',
-              color: canSave && !loading ? '#0d2b1f' : 'rgba(255,255,255,.35)',
+              background: amount > 0 && !loading && !rateLoading ? '#e8c84a' : 'rgba(232,200,74,0.25)',
+              color: amount > 0 && !loading && !rateLoading ? '#0d2b1f' : 'rgba(255,255,255,.35)',
               fontFamily: 'Syne, sans-serif', fontSize: 15, fontWeight: 800,
               letterSpacing: '.03em',
-              cursor: canSave && !loading ? 'pointer' : 'default',
+              cursor: loading || rateLoading ? 'default' : 'pointer',
               transition: 'all 0.15s',
             }}
           >
             {loading ? 'Saving…' : rateLoading ? 'Loading rate…' :
-              amount > 0
-                ? `Save · ${currency === 'USD' ? `$${amountUSD.toFixed(2)}` : `${sym}${amount.toFixed(2)} → $${amountUSD.toFixed(2)}`}`
-                : 'Enter an amount'
+              !amount ? 'Enter an amount' :
+              !description.trim() ? 'Enter a description ↑' :
+              `Save · ${currency === 'USD' ? `$${amountUSD.toFixed(2)}` : `${sym}${amount.toFixed(2)} → $${amountUSD.toFixed(2)}`}`
             }
           </button>
 
