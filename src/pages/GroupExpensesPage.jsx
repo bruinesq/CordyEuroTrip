@@ -43,7 +43,7 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
   async function handleSave(entry) {
     const catId = await getCategoryId(entry.category)
     if (entry.type === 'pe') {
-      await supabase.from('personal_expenses').insert({
+      const { error } = await supabase.from('personal_expenses').insert({
         traveler_id: currentUser.id,
         description: entry.description,
         original_amount: entry.original_amount,
@@ -53,8 +53,9 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
         expense_date: entry.expense_date,
         category_id: catId,
       })
+      if (error) console.error('[GE] PE insert error:', error)
     } else {
-      const { data: exp } = await supabase.from('group_expenses').insert({
+      const { data: exp, error: expError } = await supabase.from('group_expenses').insert({
         paid_by: currentUser.id,
         description: entry.description,
         original_amount: entry.original_amount,
@@ -64,11 +65,13 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
         expense_date: entry.expense_date,
         category_id: catId,
       }).select().single()
+      if (expError) { console.error('[GE] GE insert error:', expError); return }
       if (exp && entry.participants.length) {
         const share = parseFloat((entry.amount_usd / entry.participants.length).toFixed(2))
-        await supabase.from('group_expense_participants').insert(
+        const { error: partError } = await supabase.from('group_expense_participants').insert(
           entry.participants.map(tid => ({ expense_id: exp.id, traveler_id: tid, share_usd: share }))
         )
+        if (partError) console.error('[GE] participants insert error:', partError)
       }
     }
     await load()
@@ -96,10 +99,11 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
   async function saveEdit() {
     if (!editEntry) return
     setSaving(true)
-    const rate = await getExchangeRate(editForm.original_currency, 'USD')
+    const rateInfo = await getExchangeRate(editForm.original_currency, 'USD')
+    const rate = rateInfo.rate
     const usd = parseFloat((parseFloat(editForm.original_amount) * rate).toFixed(2))
     const { data: cat } = await supabase.from('categories').select('id').eq('name', editForm.category).single()
-    await supabase.from('group_expenses').update({
+    const { error: updateError } = await supabase.from('group_expenses').update({
       description: editForm.description,
       original_amount: parseFloat(editForm.original_amount),
       original_currency: editForm.original_currency,
@@ -108,13 +112,15 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
       expense_date: editForm.expense_date,
       category_id: cat?.id ?? 2,
     }).eq('id', editEntry.id)
+    if (updateError) { console.error('[GE] update error:', updateError); setSaving(false); return }
     // Rebuild participants
     if (editForm.participants?.length > 0) {
       await supabase.from('group_expense_participants').delete().eq('expense_id', editEntry.id)
       const share = parseFloat((usd / editForm.participants.length).toFixed(2))
-      await supabase.from('group_expense_participants').insert(
+      const { error: partError } = await supabase.from('group_expense_participants').insert(
         editForm.participants.map(tid => ({ expense_id: editEntry.id, traveler_id: tid, share_usd: share }))
       )
+      if (partError) console.error('[GE] participants update error:', partError)
     }
     await load()
     setSaving(false)
