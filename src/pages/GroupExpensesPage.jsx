@@ -40,7 +40,10 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
     return data?.id ?? 2
   }
 
+  const [saveError, setSaveError] = useState('')
+
   async function handleSave(entry) {
+    setSaveError('')
     const catId = await getCategoryId(entry.category)
     if (entry.type === 'pe') {
       const { error } = await supabase.from('personal_expenses').insert({
@@ -53,7 +56,7 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
         expense_date: entry.expense_date,
         category_id: catId,
       })
-      if (error) console.error('[GE] PE insert error:', error)
+      if (error) { console.error('[GE] PE insert error:', error); setSaveError('PE: ' + error.message) }
     } else {
       const { data: exp, error: expError } = await supabase.from('group_expenses').insert({
         paid_by: currentUser.id,
@@ -65,13 +68,13 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
         expense_date: entry.expense_date,
         category_id: catId,
       }).select().single()
-      if (expError) { console.error('[GE] GE insert error:', expError); return }
+      if (expError) { console.error('[GE] GE insert error:', expError); setSaveError('GE insert: ' + expError.message); return }
       if (exp && entry.participants.length) {
         const share = parseFloat((entry.amount_usd / entry.participants.length).toFixed(2))
         const { error: partError } = await supabase.from('group_expense_participants').insert(
           entry.participants.map(tid => ({ expense_id: exp.id, traveler_id: tid, share_usd: share }))
         )
-        if (partError) console.error('[GE] participants insert error:', partError)
+        if (partError) { console.error('[GE] participants insert error:', partError); setSaveError('Participants: ' + partError.message) }
       }
     }
     await load()
@@ -99,6 +102,7 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
   async function saveEdit() {
     if (!editEntry) return
     setSaving(true)
+    setSaveError('')
     const rateInfo = await getExchangeRate(editForm.original_currency, 'USD')
     const rate = rateInfo.rate
     const usd = parseFloat((parseFloat(editForm.original_amount) * rate).toFixed(2))
@@ -112,7 +116,12 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
       expense_date: editForm.expense_date,
       category_id: cat?.id ?? 2,
     }).eq('id', editEntry.id)
-    if (updateError) { console.error('[GE] update error:', updateError); setSaving(false); return }
+    if (updateError) {
+      console.error('[GE] update error:', updateError)
+      setSaveError('Update failed: ' + updateError.message)
+      setSaving(false)
+      return
+    }
     // Rebuild participants
     if (editForm.participants?.length > 0) {
       await supabase.from('group_expense_participants').delete().eq('expense_id', editEntry.id)
@@ -120,7 +129,10 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
       const { error: partError } = await supabase.from('group_expense_participants').insert(
         editForm.participants.map(tid => ({ expense_id: editEntry.id, traveler_id: tid, share_usd: share }))
       )
-      if (partError) console.error('[GE] participants update error:', partError)
+      if (partError) {
+        console.error('[GE] participants update error:', partError)
+        setSaveError('Participants failed: ' + partError.message)
+      }
     }
     await load()
     setSaving(false)
@@ -151,6 +163,12 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
         <div className="metric"><div className="metric-label">I paid</div><div className="metric-value" style={{ color: 'var(--green)' }}>{fmtUSD(iPaid)}</div></div>
         <div className="metric"><div className="metric-label">Net</div><div className="metric-value" style={{ color: iPaid - myShare >= 0 ? 'var(--green)' : 'var(--red-err)' }}>{fmtUSD(iPaid - myShare)}</div></div>
       </div>
+
+      {saveError && (
+        <div style={{ background: '#FEE2E2', border: '1px solid #B91C1C', borderRadius: 10, padding: '10px 14px', marginBottom: 10, fontFamily: 'IBM Plex Mono, monospace', fontSize: 12, color: '#B91C1C', wordBreak: 'break-all' }}>
+          ⚠️ {saveError}
+        </div>
+      )}
 
       <button className="add-btn" onClick={() => setShowKeypad(true)} style={{ marginBottom: 14 }}>
         <i className="ti ti-plus" /> Log Expense
@@ -329,6 +347,13 @@ export default function GroupExpensesPage({ currentUser, travelers, defaultType 
                   </div>
                 )}
               </div>
+
+              {/* Error */}
+              {saveError && (
+                <div style={{ background: 'rgba(185,28,28,.2)', border: '1px solid #B91C1C', borderRadius: 10, padding: '10px 12px', marginBottom: 8, fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: '#fca5a5', wordBreak: 'break-all' }}>
+                  ⚠️ {saveError}
+                </div>
+              )}
 
               {/* Buttons */}
               <div style={{ display: 'flex', gap: 8 }}>
