@@ -118,8 +118,8 @@ export default function HotelsPage({ currentUser, travelers }) {
   }
 
   async function save() {
-    if (!form.hotel_name || !form.check_in || !form.check_out || !form.original_amount) {
-      setSaveError('Please fill in hotel name, check-in, check-out, and total cost.')
+    if (!form.hotel_name || !form.city || !form.check_in || !form.check_out || !form.original_amount) {
+      setSaveError('Please fill in all required fields (marked with *).')
       return
     }
     setSaving(true)
@@ -371,7 +371,7 @@ export default function HotelsPage({ currentUser, travelers }) {
                 <input className="form-input" placeholder="Hotel Artemide" value={form.hotel_name} onChange={set('hotel_name')} />
               </div>
               <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">City</label>
+                <label className="form-label">City *</label>
                 <input className="form-input" placeholder="Rome" value={form.city} onChange={set('city')} />
               </div>
             </div>
