@@ -354,114 +354,138 @@ export default function HotelsPage({ currentUser, travelers }) {
         )
       })()}
 
-      {/* ── Add / Edit hotel form ── */}
+      {/* ── Add / Edit hotel — CareConnect centered dark-green card ── */}
       {showForm && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'rgba(61,46,30,0.45)' }}
+        <div style={{ position: 'fixed', inset: 0, zIndex: 900, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }}
           onClick={e => e.target === e.currentTarget && setShowForm(false)}>
-          <div style={{ background: 'var(--cream)', borderRadius: '22px 22px 0 0', padding: '16px 16px', paddingBottom: 'calc(90px + env(safe-area-inset-bottom, 16px))', maxHeight: '92vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
-            <div style={{ width: 38, height: 4, background: 'var(--warm-200)', borderRadius: 2, margin: '0 auto 14px' }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 800 }}>{editHotel ? 'Edit hotel' : 'Add hotel'}</div>
-              <button onClick={() => setShowForm(false)} className="slide-panel-close"><i className="ti ti-x" /></button>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 8, marginBottom: 10 }}>
-              <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">Hotel name *</label>
-                <input className="form-input" placeholder="Hotel Artemide" value={form.hotel_name} onChange={set('hotel_name')} />
+          <div style={{ background: '#0d2b1f', borderRadius: 16, boxShadow: '0 8px 40px rgba(0,0,0,0.55)', width: 'min(96vw,420px)', maxHeight: '92vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch', zIndex: 910 }}>
+            <div style={{ width: 32, height: 3, background: 'rgba(255,255,255,.2)', borderRadius: 99, margin: '14px auto 0' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px 0' }}>
+              <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 13, fontWeight: 800, color: '#e8c84a', textTransform: 'uppercase', letterSpacing: '.08em' }}>
+                {editHotel ? 'Edit hotel' : 'Add hotel'}
               </div>
-              <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">City *</label>
-                <input className="form-input" placeholder="Rome" value={form.city} onChange={set('city')} />
-              </div>
-            </div>
-
-            <div className="form-field">
-              <label className="form-label">Address</label>
-              <input className="form-input" placeholder="Via Nazionale 22, Rome" value={form.address} onChange={set('address')} />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
-              <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">Phone</label>
-                <input className="form-input mono" placeholder="+39 06..." value={form.phone} onChange={set('phone')} />
-              </div>
-              <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">Confirmation #</label>
-                <input className="form-input mono" placeholder="ABC123" value={form.confirmation_number} onChange={set('confirmation_number')} />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
-              <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">Check-in *</label>
-                <input className="form-input mono" type="date" value={form.check_in} onChange={set('check_in')} />
-              </div>
-              <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">Check-out *</label>
-                <input className="form-input mono" type="date" value={form.check_out} onChange={set('check_out')} />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8, marginBottom: 10 }}>
-              <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">Total cost *</label>
-                <input className="form-input mono" type="number" placeholder="0.00" value={form.original_amount} onChange={set('original_amount')} />
-              </div>
-              <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">Currency</label>
-                <select className="form-select mono" value={form.original_currency} onChange={set('original_currency')}>
-                  {CURRENCIES.map(c => <option key={c}>{c}</option>)}
-                </select>
-              </div>
-            </div>
-
-            {/* Guests */}
-            <div style={{ background: 'var(--warm-100)', borderRadius: 10, padding: 10, marginBottom: 10 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--warm-500)', fontFamily: 'Syne, sans-serif', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>
-                Guests staying · split equally
-              </div>
-              <div className="traveler-grid">
-                {travelers.map(t => (
-                  <button key={t.id} className={`tv-btn ${guests.includes(t.id) ? 'selected' : ''}`} onClick={() => toggleGuest(t.id)}>
-                    {t.name.split(' ')[0]}
-                  </button>
-                ))}
-              </div>
-              {form.original_amount && guests.length > 0 && (
-                <div className="mono" style={{ fontSize: 11, color: 'var(--green)', marginTop: 8, textAlign: 'right', fontWeight: 600 }}>
-                  {fmtUSD(parseFloat(form.original_amount) / guests.length)} / person
-                </div>
-              )}
-            </div>
-
-            <div className="form-field">
-              <label className="form-label">Notes</label>
-              <input className="form-input" placeholder="Breakfast included, parking, WiFi..." value={form.notes} onChange={set('notes')} />
-            </div>
-
-            {/* Info note about auto-sync */}
-            <div style={{ background: '#E8F5EA', border: '1px solid #B8E0C0', borderRadius: 10, padding: '9px 12px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <i className="ti ti-info-circle" style={{ fontSize: 14, color: 'var(--green)', flexShrink: 0 }} />
-              <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 11, color: '#1B7A4A', fontWeight: 600 }}>
-                Hotel cost will be automatically logged to Group expenses and Balances.
-              </div>
-            </div>
-
-            {saveError && (
-              <div style={{ background: 'var(--red-light)', border: '1px solid var(--red-err)', borderRadius: 10, padding: '10px 12px', marginBottom: 10, fontFamily: 'Syne, sans-serif', fontSize: 13, color: 'var(--red-err)', fontWeight: 600 }}>
-                {saveError}
-              </div>
-            )}
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <button onClick={() => setShowForm(false)}
-                style={{ padding: '14px', background: 'var(--warm-100)', color: 'var(--warm-800)', border: 'none', borderRadius: 13, fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700 }}>
+              <button onClick={() => setShowForm(false)} style={{ background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.2)', borderRadius: 99, padding: '5px 14px', fontFamily: 'Syne, sans-serif', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,.75)', cursor: 'pointer' }}>
                 Cancel
               </button>
-              <button className="kp-submit" style={{ margin: 0 }} onClick={save} disabled={saving}>
-                {saving ? 'Saving...' : 'Save hotel'}
-              </button>
+            </div>
+
+            <div style={{ padding: '12px 16px 20px' }}>
+              {/* Hotel name + City */}
+              <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 8, marginBottom: 8 }}>
+                {[['Hotel name *', 'Hotel Artemide', 'hotel_name'], ['City *', 'Rome', 'city']].map(([lbl, ph, field]) => (
+                  <div key={field}>
+                    <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.75)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>{lbl}</div>
+                    <input style={{ background: '#1e4a34', border: '1.5px solid rgba(255,255,255,.25)', borderRadius: 10, padding: '11px 13px', fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 600, color: '#fff', outline: 'none', width: '100%' }}
+                      placeholder={ph} value={form[field]} onChange={set(field)}
+                      onFocus={e => e.target.style.borderColor='#e8c84a'} onBlur={e => e.target.style.borderColor='rgba(255,255,255,.25)'} />
+                  </div>
+                ))}
+              </div>
+
+              {/* Address */}
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.75)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>Address</div>
+                <input style={{ background: '#1e4a34', border: '1.5px solid rgba(255,255,255,.25)', borderRadius: 10, padding: '11px 13px', fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 600, color: '#fff', outline: 'none', width: '100%' }}
+                  placeholder="Via Nazionale 22, Rome" value={form.address} onChange={set('address')}
+                  onFocus={e => e.target.style.borderColor='#e8c84a'} onBlur={e => e.target.style.borderColor='rgba(255,255,255,.25)'} />
+              </div>
+
+              {/* Phone + Confirmation */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                {[['Phone', '+39 06...', 'phone'], ['Confirmation #', 'ABC123', 'confirmation_number']].map(([lbl, ph, field]) => (
+                  <div key={field}>
+                    <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.75)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>{lbl}</div>
+                    <input style={{ background: '#1e4a34', border: '1.5px solid rgba(255,255,255,.25)', borderRadius: 10, padding: '11px 10px', fontFamily: 'IBM Plex Mono, monospace', fontSize: 12, color: '#fff', outline: 'none', width: '100%' }}
+                      placeholder={ph} value={form[field]} onChange={set(field)}
+                      onFocus={e => e.target.style.borderColor='#e8c84a'} onBlur={e => e.target.style.borderColor='rgba(255,255,255,.25)'} />
+                  </div>
+                ))}
+              </div>
+
+              {/* Check-in / Check-out */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                {[['Check-in *', 'check_in'], ['Check-out *', 'check_out']].map(([lbl, field]) => (
+                  <div key={field}>
+                    <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.75)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>{lbl}</div>
+                    <input type="date" style={{ background: '#1e4a34', border: '1.5px solid rgba(255,255,255,.25)', borderRadius: 10, padding: '11px 10px', fontFamily: 'IBM Plex Mono, monospace', fontSize: 12, color: '#fff', outline: 'none', width: '100%' }}
+                      value={form[field]} onChange={set(field)}
+                      onFocus={e => e.target.style.borderColor='#e8c84a'} onBlur={e => e.target.style.borderColor='rgba(255,255,255,.25)'} />
+                  </div>
+                ))}
+              </div>
+
+              {/* Total cost + Currency */}
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8, marginBottom: 8 }}>
+                <div>
+                  <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.75)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>Total cost *</div>
+                  <input type="number" style={{ background: '#1e4a34', border: '1.5px solid rgba(255,255,255,.25)', borderRadius: 10, padding: '11px 13px', fontFamily: 'IBM Plex Mono, monospace', fontSize: 14, color: '#f0e080', outline: 'none', width: '100%' }}
+                    placeholder="0.00" value={form.original_amount} onChange={set('original_amount')}
+                    onFocus={e => e.target.style.borderColor='#e8c84a'} onBlur={e => e.target.style.borderColor='rgba(255,255,255,.25)'} />
+                </div>
+                <div>
+                  <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.75)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>Currency</div>
+                  <select style={{ background: '#1e4a34', border: '1.5px solid rgba(255,255,255,.25)', borderRadius: 10, padding: '11px 8px', fontFamily: 'IBM Plex Mono, monospace', fontSize: 13, color: '#fff', outline: 'none', width: '100%', appearance: 'none' }}
+                    value={form.original_currency} onChange={set('original_currency')}
+                    onFocus={e => e.target.style.borderColor='#e8c84a'} onBlur={e => e.target.style.borderColor='rgba(255,255,255,.25)'}>
+                    {CURRENCIES.map(c => <option key={c} style={{ background: '#1e4a34' }}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Guests */}
+              <div style={{ background: '#1e4a34', border: '1.5px solid rgba(255,255,255,.25)', borderRadius: 10, padding: 10, marginBottom: 8 }}>
+                <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.75)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>
+                  Guests staying · split equally
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 5 }}>
+                  {travelers.map(t => {
+                    const sel = guests.includes(t.id)
+                    return (
+                      <button key={t.id} onClick={() => toggleGuest(t.id)} style={{ padding: '6px 3px', borderRadius: 8, border: sel ? 'none' : '1px solid rgba(255,255,255,.5)', fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, background: sel ? '#e8c84a' : 'transparent', color: sel ? '#0d2b1f' : 'rgba(255,255,255,.85)', cursor: 'pointer' }}>
+                        {t.name.split(' ')[0]}
+                      </button>
+                    )
+                  })}
+                </div>
+                {form.original_amount && guests.length > 0 && (
+                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: '#f0e080', marginTop: 8, textAlign: 'right', fontWeight: 700 }}>
+                    {fmtUSD(parseFloat(form.original_amount) / guests.length)} / person
+                  </div>
+                )}
+              </div>
+
+              {/* Notes */}
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.75)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>Notes</div>
+                <input style={{ background: '#1e4a34', border: '1.5px solid rgba(255,255,255,.25)', borderRadius: 10, padding: '11px 13px', fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 600, color: '#fff', outline: 'none', width: '100%' }}
+                  placeholder="Breakfast included, parking, WiFi..." value={form.notes} onChange={set('notes')}
+                  onFocus={e => e.target.style.borderColor='#e8c84a'} onBlur={e => e.target.style.borderColor='rgba(255,255,255,.25)'} />
+              </div>
+
+              {/* Auto-sync note */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#1a3d2a', border: '1px solid #2a6040', borderRadius: 10, padding: '8px 12px', marginBottom: 8 }}>
+                <i className="ti ti-info-circle" style={{ fontSize: 13, color: '#6dbf8b', flexShrink: 0 }} />
+                <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 11, color: '#6dbf8b', fontWeight: 600 }}>
+                  Hotel cost auto-logs to Group expenses and Balances.
+                </div>
+              </div>
+
+              {/* Error */}
+              {saveError && (
+                <div style={{ background: 'rgba(185,28,28,.2)', border: '1px solid #B91C1C', borderRadius: 10, padding: '10px 12px', marginBottom: 8, fontFamily: 'Syne, sans-serif', fontSize: 13, color: '#fca5a5', fontWeight: 600 }}>
+                  {saveError}
+                </div>
+              )}
+
+              {/* Buttons */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setShowForm(false)} style={{ flex: 1, height: 50, borderRadius: 12, border: 'none', background: 'rgba(255,255,255,.1)', color: 'rgba(255,255,255,.75)', fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+                  Cancel
+                </button>
+                <button onClick={save} disabled={saving} style={{ flex: 2, height: 50, borderRadius: 12, border: 'none', background: saving ? 'rgba(232,200,74,0.25)' : '#e8c84a', color: saving ? 'rgba(255,255,255,.35)' : '#0d2b1f', fontFamily: 'Syne, sans-serif', fontSize: 15, fontWeight: 800, cursor: saving ? 'default' : 'pointer' }}>
+                  {saving ? 'Saving…' : 'Save hotel'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
