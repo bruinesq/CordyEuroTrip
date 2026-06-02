@@ -44,6 +44,15 @@
   --cat-drinks-bg:    #FFF0E8; --cat-drinks-icon:    #C45E1A;
   --cat-grocery-bg:   #E8F5EA; --cat-grocery-icon:   #1B7A4A;
   --cat-other-bg:     #F7F0E8; --cat-other-icon:     #8A7560;
+
+  /* CareConnect Keypad theme */
+  --kp-bg:        #0d2b1f;
+  --kp-field:     #1e4a34;
+  --kp-key:       #5a8a70;
+  --kp-gold:      #e8c84a;
+  --kp-gold-amt:  #f0e080;
+  --kp-del:       #c0392b;
+  --kp-split:     #2a5040;
 }
 
 html, body, #root {
@@ -133,7 +142,6 @@ input, select, textarea {
 }
 .nav-item.active { color: var(--cardinal); }
 .nav-item i { font-size: 22px; }
-.nav-item.active { color: inherit; }
 .nav-item.active i { color: inherit; }
 
 /* CONTENT */
@@ -235,6 +243,7 @@ input, select, textarea {
   font-size: 14px; font-weight: 700;
   letter-spacing: 0.02em;
   margin-top: 4px;
+  margin-bottom: 4px;
   display: flex; align-items: center; justify-content: center; gap: 7px;
 }
 .add-btn:active { opacity: 0.85; }
@@ -249,9 +258,10 @@ input, select, textarea {
 .sheet {
   background: var(--cream);
   border-radius: 22px 22px 0 0;
-  padding: 16px 16px calc(20px + var(--safe-bottom));
+  padding: 16px 16px calc(32px + var(--safe-bottom));
   max-height: 92vh;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .sheet-handle {
   width: 38px; height: 4px;
@@ -266,61 +276,8 @@ input, select, textarea {
   letter-spacing: -0.01em;
 }
 
-/* KEYPAD */
-.kp-display {
-  background: #fff;
-  border: 1px solid var(--warm-200);
-  border-radius: 13px;
-  padding: 12px 16px; margin-bottom: 12px;
-}
-.kp-amount {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 36px; font-weight: 600;
-  text-align: right; color: var(--warm-800);
-}
-.kp-rate {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 12px; color: var(--warm-500);
-  text-align: right; margin-top: 2px;
-}
-.kp-currency-row { display: flex; gap: 6px; margin-bottom: 10px; overflow-x: auto; }
-.cur-btn {
-  flex-shrink: 0;
-  padding: 7px 12px;
-  border: 1px solid var(--warm-200);
-  border-radius: 9px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px; font-weight: 600;
-  background: #fff; color: var(--warm-500);
-}
-.cur-btn.active { background: var(--cardinal-light); color: var(--cardinal); border-color: var(--cardinal); }
-
-.type-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-.type-btn {
-  padding: 12px; border: 1px solid var(--warm-200);
-  border-radius: 12px;
-  font-family: 'Syne', sans-serif;
-  font-size: 13px; font-weight: 700;
-  background: #fff; color: var(--warm-500);
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-}
-.type-btn.active-pe { background: var(--gold-light); color: var(--gold-dark); border-color: var(--gold-mid); }
-.type-btn.active-ge { background: var(--cardinal-light); color: var(--cardinal); border-color: var(--cardinal); }
-
-.kp-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 12px; }
-.kp-key {
-  height: 58px;
-  background: #fff;
-  border: 1px solid var(--warm-200);
-  border-radius: 13px;
-  font-family: 'Syne', sans-serif;
-  font-size: 22px; font-weight: 700;
-  color: var(--warm-800);
-}
-.kp-key.wide { grid-column: span 2; }
-.kp-key.del { background: var(--warm-100); }
-.kp-key:active { background: var(--warm-200); }
-
+/* KEYPAD — CareConnect dark green theme */
+/* All layout is inline in Keypad.jsx. These classes are kept for compatibility. */
 .kp-submit {
   width: 100%; padding: 15px;
   background: var(--cardinal); color: #fff;
@@ -341,20 +298,6 @@ input, select, textarea {
   text-align: center; background: #fff; color: var(--warm-500);
 }
 .tv-btn.selected { background: var(--cardinal-light); color: var(--cardinal); border-color: var(--cardinal); }
-
-/* CATEGORY GRID */
-.category-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; margin-bottom: 12px; }
-.cat-btn {
-  padding: 10px 4px; border: 1px solid var(--warm-200);
-  border-radius: 11px;
-  font-family: 'Syne', sans-serif;
-  font-size: 10px; font-weight: 700;
-  text-align: center; background: #fff; color: var(--warm-500);
-  display: flex; flex-direction: column; align-items: center; gap: 5px;
-  letter-spacing: 0.02em;
-}
-.cat-btn i { font-size: 21px; }
-.cat-btn.selected { background: var(--cardinal-light); color: var(--cardinal); border-color: var(--cardinal); }
 
 /* PIN SCREEN */
 .pin-screen {
@@ -447,6 +390,7 @@ input, select, textarea {
 .mono  { font-family: 'IBM Plex Mono', monospace; }
 .syne  { font-family: 'Syne', sans-serif; }
 .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 /* iPhone safe area fixes */
 .content-scroll {
   flex: 1;
@@ -454,15 +398,6 @@ input, select, textarea {
   -webkit-overflow-scrolling: touch;
   padding: 14px 12px;
   padding-bottom: calc(100px + var(--safe-bottom));
-}
-
-.sheet {
-  background: var(--cream);
-  border-radius: 22px 22px 0 0;
-  padding: 16px 16px calc(32px + var(--safe-bottom));
-  max-height: 92vh;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
 .slide-panel {
@@ -507,8 +442,4 @@ input, select, textarea {
   z-index: 50;
   display: flex;
   background: rgba(61,46,30,0.35);
-}
-/* Ensure all primary action buttons clear the nav bar on iPhone */
-.add-btn {
-  margin-bottom: 4px;
 }
