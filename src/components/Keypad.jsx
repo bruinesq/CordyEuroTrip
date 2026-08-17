@@ -60,99 +60,65 @@ export default function Keypad({ onSave, onClose, travelers, currentUser, defaul
     onClose()
   }
 
-  const canSave = amount > 0 && description.trim().length > 0 && !rateLoading
-
-  // Shared input style
-  const inputStyle = {
-    background: '#1e4a34',
-    border: '1.5px solid rgba(255,255,255,.25)',
-    borderRadius: 10,
-    padding: '11px 13px',
-    fontFamily: 'Syne, sans-serif',
-    fontSize: 14,
-    fontWeight: 600,
-    color: '#ffffff',
-    outline: 'none',
-    width: '100%',
+  // Compact shared styles — tighter padding for iPhone
+  const inp = {
+    background: '#1e4a34', border: '1.5px solid rgba(255,255,255,.25)',
+    borderRadius: 9, padding: '8px 11px',
+    fontFamily: 'Syne, sans-serif', fontSize: 13, fontWeight: 600,
+    color: '#ffffff', outline: 'none', width: '100%',
   }
-
-  const selectStyle = {
-    ...inputStyle,
-    appearance: 'none',
-    fontSize: 12,
-    padding: '11px 10px',
+  const sel = { ...inp, appearance: 'none', fontSize: 12, padding: '8px 9px' }
+  const lbl = {
+    fontFamily: 'Syne, sans-serif', fontSize: 9, fontWeight: 700,
+    color: 'rgba(255,255,255,.7)', textTransform: 'uppercase',
+    letterSpacing: '.05em', marginBottom: 3, display: 'block',
   }
-
-  const keyStyle = {
-    height: 54,
-    borderRadius: 10,
-    border: 'none',
-    fontFamily: 'Syne, sans-serif',
-    fontSize: 26,
-    fontWeight: 700,
-    background: '#5a8a70',
-    color: '#ffffff',
-    cursor: 'pointer',
+  const key = {
+    height: 44, borderRadius: 9, border: 'none',
+    fontFamily: 'Syne, sans-serif', fontSize: 22, fontWeight: 700,
+    background: '#5a8a70', color: '#ffffff', cursor: 'pointer',
   }
+  const fg = e => e.target.style.borderColor = '#e8c84a'
+  const bg = e => e.target.style.borderColor = 'rgba(255,255,255,.25)'
 
   return (
-    // Full-screen overlay
     <div style={{
       position: 'fixed', inset: 0, zIndex: 900,
-      background: 'rgba(0,0,0,0.6)',
-      backdropFilter: 'blur(2px)',
+      background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '12px',
+      padding: '8px',
     }}>
-      {/* Floating dark-green card */}
       <div style={{
-        background: '#0d2b1f',
-        borderRadius: 16,
+        background: '#0d2b1f', borderRadius: 16,
         boxShadow: '0 8px 40px rgba(0,0,0,0.55)',
-        width: 'min(96vw, 420px)',
-        maxHeight: '92vh',
-        overflowY: 'auto',
-        WebkitOverflowScrolling: 'touch',
-        zIndex: 910,
+        width: 'min(96vw, 390px)',
+        maxHeight: 'calc(100vh - 16px)',
+        overflowY: 'auto', WebkitOverflowScrolling: 'touch', zIndex: 910,
       }}>
-        {/* Handle bar */}
-        <div style={{ width: 32, height: 3, background: 'rgba(255,255,255,.2)', borderRadius: 99, margin: '14px auto 0' }} />
+        {/* Handle */}
+        <div style={{ width: 28, height: 3, background: 'rgba(255,255,255,.2)', borderRadius: 99, margin: '10px auto 0' }} />
 
-        {/* Header row */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px 0' }}>
-          <div style={{
-            fontFamily: 'Syne, sans-serif', fontSize: 13, fontWeight: 800,
-            color: '#e8c84a', textTransform: 'uppercase', letterSpacing: '.08em',
-          }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px 0' }}>
+          <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 12, fontWeight: 800, color: '#e8c84a', textTransform: 'uppercase', letterSpacing: '.08em' }}>
             Log Expense
           </div>
-          <button onClick={onClose} style={{
-            width: 32, height: 32, borderRadius: '50%',
-            background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.2)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', color: 'rgba(255,255,255,.75)', fontSize: 16,
-          }}>
+          <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'rgba(255,255,255,.75)', fontSize: 14 }}>
             <i className="ti ti-x" />
           </button>
         </div>
 
-        <div style={{ padding: '10px 14px 16px' }}>
+        <div style={{ padding: '8px 12px 12px' }}>
 
           {/* ── Amount box ── */}
-          <div style={{
-            background: '#1e4a34', border: '1.5px solid rgba(255,255,255,.25)',
-            borderRadius: 10, padding: '10px 14px', marginBottom: 8,
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'rgba(255,255,255,.75)', textTransform: 'uppercase', letterSpacing: '.05em' }}>
-                Amount
-              </div>
-              {/* Currency toggle */}
-              <div style={{ display: 'flex', gap: 5 }}>
+          <div style={{ background: '#1e4a34', border: '1.5px solid rgba(255,255,255,.25)', borderRadius: 9, padding: '7px 12px', marginBottom: 6 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <div style={{ fontSize: 9, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'rgba(255,255,255,.7)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Amount</div>
+              <div style={{ display: 'flex', gap: 4 }}>
                 {CURRENCIES.map(c => (
                   <button key={c} onClick={() => setCurrency(c)} style={{
-                    padding: '3px 10px', borderRadius: 99, border: 'none',
-                    fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, fontWeight: 700,
+                    padding: '2px 8px', borderRadius: 99, border: 'none',
+                    fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, fontWeight: 700,
                     background: currency === c ? '#e8c84a' : 'rgba(255,255,255,.12)',
                     color: currency === c ? '#0d2b1f' : 'rgba(255,255,255,.75)',
                     cursor: 'pointer',
@@ -160,145 +126,112 @@ export default function Keypad({ onSave, onClose, travelers, currentUser, defaul
                 ))}
               </div>
             </div>
-
-            {/* Large amount */}
-            <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 34, fontWeight: 700, color: '#f0e080', textAlign: 'right' }}>
-              <span style={{ fontSize: 16, color: '#e8c84a', marginRight: 3 }}>{sym}</span>
-              {amount.toFixed(2)}
+            {/* Amount display */}
+            <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 28, fontWeight: 700, color: '#f0e080', textAlign: 'right', lineHeight: 1 }}>
+              <span style={{ fontSize: 13, color: '#e8c84a', marginRight: 2 }}>{sym}</span>{amount.toFixed(2)}
             </div>
-
-            {/* Conversion banner */}
+            {/* Conversion */}
             {isConverted && (
-              <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 8, background: '#2a5040', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ marginTop: 5, padding: '4px 8px', borderRadius: 7, background: '#2a5040', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 {rateLoading ? (
-                  <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 11, color: 'rgba(255,255,255,.65)' }}>Fetching live rate…</span>
+                  <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, color: 'rgba(255,255,255,.65)' }}>Fetching rate…</span>
                 ) : (
                   <>
-                    <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.75)' }}>
-                      1 {currency} = ${rateInfo.rate.toFixed(4)} USD
-                    </span>
-                    <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 13, fontWeight: 700, color: '#f0e080' }}>
-                      = ${amountUSD.toFixed(2)}
-                    </span>
+                    <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.75)' }}>1 {currency} = ${rateInfo.rate.toFixed(4)}</span>
+                    <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 12, fontWeight: 700, color: '#f0e080' }}>= ${amountUSD.toFixed(2)}</span>
                   </>
                 )}
               </div>
             )}
-            {isConverted && !rateLoading && (
-              <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, color: 'rgba(255,255,255,.5)', textAlign: 'right', marginTop: 3 }}>
-                via {rateInfo.source}
-              </div>
-            )}
           </div>
 
-          {/* ── Description + Date ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 116px', gap: 7, marginBottom: 7 }}>
+          {/* ── Description + Date (same row) ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px', gap: 6, marginBottom: 6 }}>
             <div>
-              <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.75)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 4 }}>
-                Description *
-              </div>
-              <input
-                ref={descRef}
-                placeholder="What was this for?"
-                value={description}
-                onChange={e => setDescription(e.target.value)}
-                autoFocus
-                style={{ ...inputStyle, fontSize: 14, borderColor: !description.trim() && showValidation ? '#c0392b' : 'rgba(255,255,255,.25)' }}
-                onFocus={e => e.target.style.borderColor = '#e8c84a'}
-                onBlur={e => e.target.style.borderColor = !description.trim() && showValidation ? '#c0392b' : 'rgba(255,255,255,.25)'}
-              />
+              <span style={lbl}>Description *</span>
+              <input ref={descRef} placeholder="What was this for?"
+                value={description} onChange={e => setDescription(e.target.value)} autoFocus
+                style={{ ...inp, borderColor: !description.trim() && showValidation ? '#c0392b' : 'rgba(255,255,255,.25)' }}
+                onFocus={fg} onBlur={bg} />
             </div>
             <div>
-              <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.75)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 4 }}>
-                Date
-              </div>
-              <input
-                type="date"
-                value={date}
-                onChange={e => setDate(e.target.value)}
-                style={{ ...inputStyle, fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, padding: '11px 7px' }}
-                onFocus={e => e.target.style.borderColor = '#e8c84a'}
-                onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,.25)'}
-              />
+              <span style={lbl}>Date</span>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)}
+                style={{ ...inp, fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, padding: '8px 5px' }}
+                onFocus={fg} onBlur={bg} />
             </div>
           </div>
           {showValidation && !description.trim() && (
-            <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 11, color: '#fca5a5', fontWeight: 700, marginBottom: 6, marginTop: -4 }}>
+            <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, color: '#fca5a5', fontWeight: 700, marginBottom: 4, marginTop: -3 }}>
               ⚠️ Description is required
             </div>
           )}
 
-          {/* ── Category + Type ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, marginBottom: 7 }}>
-            <select value={category} onChange={e => setCategory(e.target.value)} style={selectStyle}>
-              {CATEGORIES.map(c => <option key={c} value={c} style={{ background: '#1e4a34' }}>{c}</option>)}
-            </select>
-            <select value={type} onChange={e => setType(e.target.value)} style={selectStyle}>
-              <option value="ge" style={{ background: '#1e4a34' }}>Group expense</option>
-              <option value="pe" style={{ background: '#1e4a34' }}>Personal expense</option>
-            </select>
+          {/* ── Category + Type (same row) ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 6 }}>
+            <div>
+              <span style={lbl}>Category</span>
+              <select value={category} onChange={e => setCategory(e.target.value)} style={sel} onFocus={fg} onBlur={bg}>
+                {CATEGORIES.map(c => <option key={c} value={c} style={{ background: '#1e4a34' }}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <span style={lbl}>Type</span>
+              <select value={type} onChange={e => setType(e.target.value)} style={sel} onFocus={fg} onBlur={bg}>
+                <option value="ge" style={{ background: '#1e4a34' }}>Group</option>
+                <option value="pe" style={{ background: '#1e4a34' }}>Personal</option>
+              </select>
+            </div>
           </div>
 
-          {/* ── Split with (group only) ── */}
+          {/* ── Split with ── */}
           {type === 'ge' && (
-            <div style={{
-              background: '#1e4a34', border: '1.5px solid rgba(255,255,255,.25)',
-              borderRadius: 10, padding: 10, marginBottom: 8,
-            }}>
-              <div style={{ fontSize: 10, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'rgba(255,255,255,.75)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>
+            <div style={{ background: '#1e4a34', border: '1.5px solid rgba(255,255,255,.25)', borderRadius: 9, padding: '7px 9px', marginBottom: 6 }}>
+              <div style={{ fontSize: 9, fontFamily: 'Syne, sans-serif', fontWeight: 700, color: 'rgba(255,255,255,.7)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>
                 Split with
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 5 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 4 }}>
                 {travelers.map(t => {
-                  const sel = participants.includes(t.id)
+                  const s = participants.includes(t.id)
                   return (
                     <button key={t.id} onClick={() => toggleParticipant(t.id)} style={{
-                      padding: '6px 3px', borderRadius: 8,
-                      border: sel ? 'none' : '1px solid rgba(255,255,255,.5)',
-                      fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700,
-                      background: sel ? '#e8c84a' : 'transparent',
-                      color: sel ? '#0d2b1f' : 'rgba(255,255,255,.85)',
-                      cursor: 'pointer',
-                    }}>
-                      {t.name.split(' ')[0]}
-                    </button>
+                      padding: '5px 2px', borderRadius: 7,
+                      border: s ? 'none' : '1px solid rgba(255,255,255,.5)',
+                      fontFamily: 'Syne, sans-serif', fontSize: 9, fontWeight: 700,
+                      background: s ? '#e8c84a' : 'transparent',
+                      color: s ? '#0d2b1f' : 'rgba(255,255,255,.85)', cursor: 'pointer',
+                    }}>{t.name.split(' ')[0]}</button>
                   )
                 })}
               </div>
               {participants.length > 0 && amount > 0 && (
-                <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: '#f0e080', marginTop: 8, textAlign: 'right', fontWeight: 700 }}>
+                <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: '#f0e080', marginTop: 5, textAlign: 'right', fontWeight: 700 }}>
                   ${(amountUSD / participants.length).toFixed(2)} each · {participants.length} people
                 </div>
               )}
             </div>
           )}
 
-          {/* ── Number pad — calculator order 1-2-3 top ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 7, marginBottom: 8 }}>
+          {/* ── Numpad — 1-2-3 top, compact ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 5, marginBottom: 6 }}>
             {[1,2,3,4,5,6,7,8,9].map(n => (
-              <button key={n} onClick={() => kd(String(n))} style={keyStyle}>{n}</button>
+              <button key={n} onClick={() => kd(String(n))} style={key}>{n}</button>
             ))}
-            <button onClick={() => setRaw('')} style={{ ...keyStyle, fontSize: 12 }}>Clear</button>
-            <button onClick={() => kd('0')} style={keyStyle}>0</button>
-            <button onClick={() => kd('del')} style={{ ...keyStyle, background: '#c0392b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <i className="ti ti-backspace" style={{ fontSize: 22 }} />
+            <button onClick={() => setRaw('')} style={{ ...key, fontSize: 11 }}>Clear</button>
+            <button onClick={() => kd('0')} style={key}>0</button>
+            <button onClick={() => kd('del')} style={{ ...key, background: '#c0392b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <i className="ti ti-backspace" style={{ fontSize: 20 }} />
             </button>
           </div>
 
-          {/* ── Save button ── */}
-          <button
-            onClick={handleSave}
-            disabled={loading || rateLoading}
-            style={{
-              width: '100%', height: 50, borderRadius: 12, border: 'none',
-              background: amount > 0 && !loading && !rateLoading ? '#e8c84a' : 'rgba(232,200,74,0.25)',
-              color: amount > 0 && !loading && !rateLoading ? '#0d2b1f' : 'rgba(255,255,255,.35)',
-              fontFamily: 'Syne, sans-serif', fontSize: 15, fontWeight: 800,
-              letterSpacing: '.03em',
-              cursor: loading || rateLoading ? 'default' : 'pointer',
-              transition: 'all 0.15s',
-            }}
-          >
+          {/* ── Save button — sticky at bottom ── */}
+          <button onClick={handleSave} disabled={loading || rateLoading} style={{
+            width: '100%', height: 46, borderRadius: 11, border: 'none',
+            background: amount > 0 && !loading && !rateLoading ? '#e8c84a' : 'rgba(232,200,74,0.25)',
+            color: amount > 0 && !loading && !rateLoading ? '#0d2b1f' : 'rgba(255,255,255,.35)',
+            fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 800, letterSpacing: '.03em',
+            cursor: loading || rateLoading ? 'default' : 'pointer', transition: 'all 0.15s',
+          }}>
             {loading ? 'Saving…' : rateLoading ? 'Loading rate…' :
               !amount ? 'Enter an amount' :
               !description.trim() ? 'Enter a description ↑' :
