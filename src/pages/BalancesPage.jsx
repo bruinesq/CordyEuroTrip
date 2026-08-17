@@ -38,21 +38,43 @@ export default function BalancesPage({ currentUser, travelers }) {
 
   function calcSettlements() {
     const balances = calcBalances()
-    const creditors = balances.filter(b => b.net > 0.01).map(b => ({ ...b, remaining: b.net }))
-    const debtors   = balances.filter(b => b.net < -0.01).map(b => ({ ...b, remaining: -b.net }))
+    // Use integer cents to avoid floating point precision issues
+    const creditors = balances
+      .filter(b => b.net > 0.005)
+      .map(b => ({ ...b, remaining: Math.round(b.net * 100) }))
+      .sort((a, b) => b.remaining - a.remaining)
+    const debtors = balances
+      .filter(b => b.net < -0.005)
+      .map(b => ({ ...b, remaining: Math.round(-b.net * 100) }))
+      .sort((a, b) => b.remaining - a.remaining)
+
     const transfers = []
     let ci = 0, di = 0
+
     while (ci < creditors.length && di < debtors.length) {
-      const c = creditors[ci], d = debtors[di]
+      const c = creditors[ci]
+      const d = debtors[di]
       const amt = Math.min(c.remaining, d.remaining)
-      if (amt > 0.01) {
-        const existing = settlements.find(s => s.payer_id === d.id && s.payee_id === c.id)
-        transfers.push({ from: d, to: c, amount: parseFloat(amt.toFixed(2)), settled: existing?.settled ?? false, settlementId: existing?.id })
+
+      if (amt > 0) {
+        const existing = settlements.find(s =>
+          s.payer_id === d.id && s.payee_id === c.id
+        )
+        transfers.push({
+          from: d, to: c,
+          amount: parseFloat((amt / 100).toFixed(2)),
+          settled: existing?.settled ?? false,
+          settlementId: existing?.id,
+        })
+        c.remaining -= amt
+        d.remaining -= amt
       }
-      c.remaining -= amt; d.remaining -= amt
-      if (c.remaining < 0.01) ci++
-      if (d.remaining < 0.01) di++
+
+      // Advance whichever side is exhausted (within 1 cent tolerance)
+      if (c.remaining <= 1) ci++
+      if (d.remaining <= 1) di++
     }
+
     return transfers
   }
 
